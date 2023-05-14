@@ -326,8 +326,8 @@ void mabstract_button_set_text(MAbstractButton *self, const char *text) {
  */
 extern "C"
 char* mabstract_button_get_text(MAbstractButton* self){
-    char* str = self->text().toUtf8().data();
-    return cstring_new_clone(str);
+    return cstring_new_clone(self->text().toUtf8().data());
+
 }
 
 
