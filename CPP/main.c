@@ -11,6 +11,7 @@ void onclicked(MPushButton* sender){
         if (cstring_is_equal(str,"I am clicked"))
         mabstract_button_set_text(sender, "again");
         else mabstract_button_set_text(sender, "I am clicked");
+        mnfree(str);
     }
 }
 int main(int argc, char *argv[])
