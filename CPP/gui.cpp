@@ -176,6 +176,7 @@ typedef void (*voidMFnMKeyEventPtr)(QKeyEvent *e, void *edt);
 
 typedef QMouseEvent MMouseEvent;
 typedef void (*VMFn)();
+typedef void (*VMFnPtr)(void*);
 typedef void (*VMFnMouseEvent)(MMouseEvent*);
 typedef void (*VMFnKeyEvent)(QKeyEvent*);
 
@@ -533,20 +534,22 @@ char *mlabel_get_text(MLabel *self) {
     return cstring_new_clone(self->text().toUtf8().data());
 }
 
+//MPushButton
+
 #include <QtWidgets/QPushButton>
 
 class MPushButton : public QPushButton {
 private:
     VMFnMouseEvent onMousePressed = 0;
     VMFnKeyEvent onKeyPressed = 0;
-    VMFn onPressed = 0;
+    VMFnPtr onPressed = 0;
     void mousePressEvent(MMouseEvent *event) override {
         if (onMousePressed) {
             onMousePressed(event);
         }
         if (onPressed){
             if(event->button()==Qt::LeftButton){
-                onPressed();
+                onPressed(this);
             }
 
         }
@@ -561,7 +564,7 @@ private:
         }
         if (onPressed){
             if(event->key()==Qt::Key_Enter or event->key()==Qt::Key_Space){
-                onPressed();
+                onPressed(this);
             }
         }
 
@@ -580,7 +583,7 @@ public:
     void onKeyPressedConnect(VMFnKeyEvent fn){
         onKeyPressed = fn;
     }
-    void onPressedConnect(VMFn fn){
+    void onPressedConnect(VMFnPtr fn){
         onPressed = fn;
     }
 
@@ -591,7 +594,11 @@ extern "C"
 MPushButton *mpush_button_new(MWidget *parent) {
     return new(std::nothrow)MPushButton(parent);
 }
+extern "C"
+void mpush_button_on_clicked_connect(MPushButton* self , VMFnPtr onclick){
+    self->onPressedConnect(onclick);
 
+}
 
 //
 // Created by merhab on 2023/5/9.
