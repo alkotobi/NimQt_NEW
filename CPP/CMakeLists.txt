@@ -16,7 +16,7 @@ target_link_libraries(GUI  PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui)
 
 set(PROJECT_SOURCES
         main.c
-        includes/MApplication.h includes/MPushButton.h includes/MWidget.h includes/MAbstractButton.h)
+        includes/MApplication.h includes/MPushButton.h includes/MWidget.h includes/MAbstractButton.h includes/MLibrary.h)
 add_executable(cqt_test ${PROJECT_SOURCES})
 target_link_libraries(cqt_test PRIVATE GUI)
 set_property(TARGET cqt_test PROPERTY C_STANDARD 90)

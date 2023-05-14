@@ -150,6 +150,20 @@ size_t cstring_size(const char *str) {
     return cstring_count(str) + 1;
 }
 
+char cstring_is_equal(const char *str1, const char *str2)
+{
+    size_t count1= cstring_count(str1);
+    size_t count2= cstring_count(str2);
+    if (count1!=count2){
+        return 0;
+    }
+    for (int i=0;i<count1 ;i++ ) {
+        if(str1[i]!=str2[i]){
+            return 0;
+        }
+    }
+    return 1;
+}
 char *cstring_new_clone(const char *str) {
     if (!str) {
         return 0;
@@ -306,6 +320,14 @@ void mabstract_button_on_clicked(MAbstractButton *self, void *ctx, VMFn on_click
 extern "C"
 void mabstract_button_set_text(MAbstractButton *self, const char *text) {
     self->setText(MString(text));
+}
+/*
+ * don't forget free the returned char*
+ */
+extern "C"
+char* mabstract_button_get_text(MAbstractButton* self){
+    char* str = self->text().toUtf8().data();
+    return cstring_new_clone(str);
 }
 
 
@@ -563,7 +585,7 @@ private:
             onKeyPressed(event);
         }
         if (onPressed){
-            if(event->key()==Qt::Key_Enter or event->key()==Qt::Key_Space){
+            if(event->key()==Qt::Key_Return or event->key()==Qt::Key_Space){
                 onPressed(this);
             }
         }
@@ -600,6 +622,12 @@ void mpush_button_on_clicked_connect(MPushButton* self , VMFnPtr onclick){
 
 }
 
+extern "C"
+char* mpush_button_get_text(MPushButton* self ){
+     char* str = (char*)self->text().toStdString().c_str();
+    return cstring_new_clone(str);
+
+}
 //
 // Created by merhab on 2023/5/9.
 //

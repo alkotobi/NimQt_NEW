@@ -8,3 +8,4 @@ typedef void MWidget;
 typedef void (*VMFnPtr)();
 MPushButton *mpush_button_new(MWidget *parent);
 void mpush_button_on_clicked_connect(MPushButton* self , VMFnPtr onclick);
+char* mpush_button_get_text(MPushButton* self );
