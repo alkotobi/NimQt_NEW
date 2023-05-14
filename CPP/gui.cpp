@@ -624,8 +624,8 @@ void mpush_button_on_clicked_connect(MPushButton* self , VMFnPtr onclick){
 
 extern "C"
 char* mpush_button_get_text(MPushButton* self ){
-     char* str = (char*)self->text().toStdString().c_str();
-    return cstring_new_clone(str);
+     char* str =cstring_new_clone((char*)self->text().toUtf8().data());
+    return str;
 
 }
 //
