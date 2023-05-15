@@ -186,25 +186,36 @@ char *cstring_new_clone(const char *str) {
 typedef QString MString;
 
 #include <QtGui/QKeyEvent>
-typedef void (*voidMFnMKeyEventPtr)(QKeyEvent *e, void *edt);
+typedef void (*VMFnPtrPtr)(void*e, void *edt);
 
 typedef QMouseEvent MMouseEvent;
 typedef void (*VMFn)();
 typedef void (*VMFnPtr)(void*);
 typedef void (*VMFnMouseEvent)(MMouseEvent*);
 typedef void (*VMFnKeyEvent)(QKeyEvent*);
-
+typedef void (*VMFnPtrChar)(char*);
+typedef void (*VMFnPtrCharPtr)(char*,void*);
 
 //MLineEdit
 #include <QtWidgets/QLineEdit>
 class MLineEdit : public QLineEdit {
+private:
+    VMFnPtrPtr onKeyPressed = 0; 
+    VMFnPtrCharPtr onTextChanged =0;
 public:
-    voidMFnMKeyEventPtr onKeyPressed = 0;
 
     explicit MLineEdit(QWidget *parent = nullptr) :
             QLineEdit(parent) {
+          QObject::connect(this,&QLineEdit::textChanged,this,
+                     &MLineEdit::textChanged);
 
     }
+  void textChanged(QString str){
+    qDebug() << "is connected";
+    if(onTextChanged){
+      onTextChanged(str.toUtf8().data(),this);
+    }
+  }
 
     void keyPressEvent(QKeyEvent *e) override {
         if (onKeyPressed) {
@@ -214,6 +225,12 @@ public:
             QLineEdit::keyPressEvent(e);
         }
     }
+  void setOnTextChangedFn(VMFnPtrCharPtr fn){
+    this->onTextChanged = fn;
+  }
+    void setOnKeyPressedFn(VMFnPtrPtr fn){
+    this->onKeyPressed = fn;
+  }
 };
 
 
@@ -223,8 +240,12 @@ MLineEdit *mline_edit_new(QWidget *parent) {
 }
 
 extern "C"
-void mline_edit_on_key_pressed_connect(MLineEdit *self, voidMFnMKeyEventPtr fn) {
-    self->onKeyPressed = fn;
+void mline_edit_text_changed_connect(MLineEdit *self, VMFnPtrCharPtr fn) {
+    self->setOnTextChangedFn(fn);
+}
+extern "C"
+void mline_edit_on_key_pressed_connect(MLineEdit *self, VMFnPtrPtr fn) {
+    self->setOnKeyPressedFn(fn);
 }
 
 extern "C"

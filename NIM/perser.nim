@@ -644,7 +644,9 @@ proc compile_xml_2*(filename:string):string=
     
 
 when isMainModule:
-  var str=newStructOfQlayoutElements(filename)   
+  var str=newStructOfQlayoutElements(filename)
+  str =str & init_widgets_properties(filename)
+   
   str.echo
   var x: XmlParser
   var s = newFileStream(filename, fmRead)
@@ -668,10 +670,9 @@ when isMainModule:
   # nd.echo
   var wid_tree = widget_tree(x,nd)
   echo "tree done"
-  str = widget_lay_out(wid_tree) #
-  echo str
-  # str =  init_widgets(x,parent_name)
-  str = init_widgets_properties(filename)
+  str =str & widget_lay_out(wid_tree) #
+  writeFile("str.nim",str)  echo str
+  str =  init_widgets(x,parent_name)
   echo "________________________________________"
   str.echo
   

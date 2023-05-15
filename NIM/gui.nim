@@ -157,9 +157,9 @@ proc mabstract_button_onClicked(self:MTObject,ctx:pointer  ,on_clicked: abstract
 proc onClickedConnect*(self:MAbstractButton,callback:abstractButton_clicked) =
     mabstractButton_onClicked(self.getObj,nil,callback)
 
-proc setText*(self:MAbstractButton,text: cstring)=
+proc setText*(self:MAbstractButton,text:string)=
     var obj = self.getObj
-    mabstract_button_set_text(obj,text)
+    mabstract_button_set_text(obj,text.cstring)
 
 
 
@@ -189,7 +189,24 @@ proc addWidget*(self:MLayout,widget:MWidget)=
 proc removeWidget*(self:MLayout,widget:MWidget)=
     mremove_widget(self.getObj,widget.getObj)
     
+#MLineEdit
 
+type
+  MLineEdit* = ref object of MWidget
+proc mline_edit_new(parent:MTObject):MTObject {.importc:"mline_edit_new",dynlib:wid_lib}
+proc newMLineEdit(parent:MWidget = nil ):MLineEdit =
+  new result
+  result.setObj(mline_edit_new(parent.getObj()))
+  result.setParent(parent)
+proc mline_edit_set_text(self:MTObject,text:cstring):void {.importc:"mline_edit_set_text",dynlib:wid_lib}
+proc setText*(self:MLayoutItem,text:string)=
+  mline_edit_set_text(self.getObj(),text.cstring)
+proc Mline_edit_get_text(self:MTObject):cstring {.importc:"mline_edit_set_text",dynlib:wid_lib}
+proc getText(self:MLineEdit):string =
+  var str= Mline_edit_get_text(self.getObj())
+  result = &str
+  cstring_free(str)
+  
 #MBoxLayout
 type
     Direction* =enum
