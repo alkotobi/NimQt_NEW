@@ -1,4 +1,6 @@
-const wid_lib* = "/Users/merhab/dev/nim/NimQt/QT/WIDGET/cmake-build-debug/libGUI.dylib"
+const wid_lib* = "/Users/merhab/dev/nim/NimQt/CPP/build/libGUI.dylib"
+type
+  VMFnPtrCharPtr* = proc (text:cstring,sender:pointer){.cdecl.}
 type
     Alignment* = enum
       Default
@@ -194,19 +196,21 @@ proc removeWidget*(self:MLayout,widget:MWidget)=
 type
   MLineEdit* = ref object of MWidget
 proc mline_edit_new(parent:MTObject):MTObject {.importc:"mline_edit_new",dynlib:wid_lib}
-proc newMLineEdit(parent:MWidget = nil ):MLineEdit =
+proc newMLineEdit*(parent:MWidget = nil ):MLineEdit =
   new result
-  result.setObj(mline_edit_new(parent.getObj()))
+  result.setObj(mline_edit_new(nil))
   result.setParent(parent)
 proc mline_edit_set_text(self:MTObject,text:cstring):void {.importc:"mline_edit_set_text",dynlib:wid_lib}
 proc setText*(self:MLayoutItem,text:string)=
   mline_edit_set_text(self.getObj(),text.cstring)
 proc Mline_edit_get_text(self:MTObject):cstring {.importc:"mline_edit_set_text",dynlib:wid_lib}
-proc getText(self:MLineEdit):string =
+proc getText*(self:MLineEdit):string =
   var str= Mline_edit_get_text(self.getObj())
-  result = &str
+  result = $str
   cstring_free(str)
-  
+proc mline_edit_on_text_changed_connect(self:MTObject,onTextChange:VMFnPtrCharPtr):void {.cdecl,importc:"mline_edit_on_text_changed_connect",dynlib:wid_lib}
+proc connectOnTextChangeFn*(self:MLineEdit,onTextChange: VMFnPtrCharPtr):void=
+  mline_edit_on_text_changed_connect(self.getObj(),onTextChange)
 #MBoxLayout
 type
     Direction* =enum

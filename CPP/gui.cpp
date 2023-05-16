@@ -240,7 +240,7 @@ MLineEdit *mline_edit_new(QWidget *parent) {
 }
 
 extern "C"
-void mline_edit_text_changed_connect(MLineEdit *self, VMFnPtrCharPtr fn) {
+void mline_edit_on_text_changed_connect(MLineEdit *self, VMFnPtrCharPtr fn) {
     self->setOnTextChangedFn(fn);
 }
 extern "C"
