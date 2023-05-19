@@ -1,4 +1,4 @@
-import  streams, parsexml, strformat,strutils,os
+import  streams, parsexml, strformat,strutils,os,mlibrary
 # var filename = "test.ui"
 var filename = "/Users/merhab/dev/python/mnstock/ui/users/form/ui_user_form.ui"
 #not
@@ -13,6 +13,69 @@ proc is_end_of_node(x:var XmlParser,node_name:string):bool=
     return true
   else:return false
 
+
+
+proc compile_property(x:var XmlParser,parent_element:string):string=
+    var element_name=""
+    var them_name=""
+    var resource_path=""
+    var resource_name=""
+    while x.kind != xmlElementOpen and x.kind != xmlElementStart:
+        x.next()
+        # x.kind.echo
+        # x.elementName.echo
+    # x.elementName.echo
+    if x.elementName == "rect" :
+      var elems = newSeq[string]()
+      while len(elems)<4:
+        x.next()
+        if x.kind == xmlCharData:
+          elems.add(x.elementName)
+          # x.elementName.echo
+      var s1 = &"{elems[0]},{elems[1]},{elems[2]},{elems[3]}"
+      s1.echo     
+      return s1
+    if x.elementName == "string":
+      x.next()
+      if x.kind == xmlCharData:
+        var s1 = &"\"{x.element_name}\""
+        s1.echo
+        return s1
+    if x.elementName == "number" or x.elementName == "enum" or x.elementName == "bool":
+      x.next()
+      if x.kind == xmlCharData:
+        # x.elementName.echo
+        return x.elementName
+    if x.elementName == "size":
+      var elems = newSeq[string]()
+      while len(elems)<2:
+        x.next()
+        if x.kind == xmlCharData:
+          elems.add(x.elementName)
+          # x.elementName.echo
+      var s1 = &"{elems[0]},{elems[1]}"
+      s1.echo
+      return s1
+    if x.elementName == "iconset":
+      x.next()
+      if x.kind == xmlAttribute:
+        if x.attrKey == "theme":
+          them_name = x.attrValue
+          x.next
+        if x.attrKey == "resource":
+          resource_path = x.attrValue
+      while x.kind != xmlCharData:
+        x.next
+      resource_name = x.elementName
+      var path = resource_path.splitPath().head
+      var file = resource_name.splitPath().tail
+      path = path & DirSep & file
+      var s1 = &"\"{path}\""
+      s1.echo
+      return s1
+      
+
+
 proc compile_property(x:var XmlParser,elementName:string,property_name:string):string=
   var s1 = ""
   x.go_to_next_node
@@ -24,8 +87,9 @@ proc compile_property(x:var XmlParser,elementName:string,property_name:string):s
       if x.kind == xmlCharData:
         elems.add(x.elementName)
         # x.elementName.echo
-    for elm in elems:  s1 = &"{s1},Q{my_elem_name.capitalizeAscii}({elm})"
-    # s1.echo 
+    s1 = ",".join(elems) 
+    s1 = &"M{my_elem_name.capitalizeAscii}({s1})"
+    s1.echo 
   elif x.elementName == "string":
     x.next()
     if x.kind == xmlCharData:
@@ -35,14 +99,19 @@ proc compile_property(x:var XmlParser,elementName:string,property_name:string):s
     x.next()
     if x.kind == xmlCharData:
       # x.elementName.echo
-      s1= x.elementName
+      if x.elementName().contains("::"):
+        var words = x.elementName().split("::")
+        words[0][0]= 'M'
+        s1="M" & property_name.capitalizeAscii & "Flags." & words[1]
+      else:
+       s1= x.elementName
   elif x.elementName == "iconset":
     var them_name =""
     var resource_path = ""
     var resource_name = ""
     x.next()
     if x.kind == xmlAttribute:
-      if x.attrKey == "them":
+      if x.attrKey == "theme":
         them_name = x.attrValue
         x.next()
       if x.attrKey == "resource":
@@ -54,14 +123,15 @@ proc compile_property(x:var XmlParser,elementName:string,property_name:string):s
       var path = resource_path.splitPath().head
       var file = resource_name.splitPath().tail
       path = path & DirSep & file
-      s1 = &"QIcon(\"{path}\")"
+      s1 = &"MIcon(\"{path}\")"
       # s1.echo
     else: return ""
 
   s1 = &"{elementName}.set{property_name.capitalizeAscii}({s1})\n"
+  echo s1
   return s1
 
-proc echo(x:var XmlParser)=
+proc echo*(x:var XmlParser)=
     echo "kind:",x.kind," name:",x.elementName
     if x.kind == xmlAttribute:
       echo "key:",x.attrKey,"/val:",x.attrValue
@@ -90,7 +160,6 @@ proc newStructOfQlayoutElements(file_name:string):string=
   var str = ""
   var x: XmlParser
   var ident="  "
-  var import_list = newSeq[string]()
   var s = newFileStream(filename, fmRead)
   open(x, s, filename)
   var class = ""
@@ -100,20 +169,19 @@ proc newStructOfQlayoutElements(file_name:string):string=
     x.next()
   x.next()
   class = x.attrValue
+  class[0]='M'
   # class.echo
   x.next()
-  type UI = ref object of RootObj
-    n:int
 
   parent_name = x.attrValue
-  str = &"type UI_{parent_name}* = ref object of RootObj\n"
+  parent_name[0]=parent_name[0].toLowerAscii()
+  str = &"type {parent_name.capitalizeascii}* = ref object of {class}\n"
   while x.kind != xmlEof:
     # x.echo
     if x.isAttributeOf "class":
       if x.kind == xmlAttribute:
         var class_name = x.attrValue
         class_name[0]='M'
-        if class_name notin import_list: import_list.add class_name
         # echo "class_name:",class_name
         x.next()
         # x.echo
@@ -132,7 +200,6 @@ proc newStructOfQlayoutElements(file_name:string):string=
         class_name = &"M{x.element_name.capitalizeAscii}"
       else:
         class_name = &"M{x.element_name.capitalizeAscii}Item"
-      if class_name notin import_list: import_list.add class_name
       
       # class_name.echo
       # x.echo
@@ -143,9 +210,7 @@ proc newStructOfQlayoutElements(file_name:string):string=
         str = &"{str}{ident}{obj_name}: {class_name}\n"
         # echo "\n************************\n",str,"\n************************\n"
     x.next()
-  var s1 = ""
-  for imp in import_list : s1 = &"{s1},{imp}"
-  str = &"import {s1}\n{str}"  
+  str = &"import gui\n{str}"  
   return str;
 
 proc widget_get_next_attribute(x:var XmlParser):tuple[key:string,val:string]=
@@ -163,16 +228,18 @@ proc widget_get_name_and_class(x:var XmlParser):tuple[name:string,class:string]=
   if x.elementName == "widget" or x.elementName == "layout":
     var atr = x.widget_get_next_attribute
     result.class = atr.val
+    result.class[0]='M'
     atr = x.widget_get_next_attribute
     result.name = atr.val
   if x.elementName == "spacer":
     var atr=x.widget_get_next_attribute
     result.name = atr.val
-    result.class = "QSpacerItem"
+    result.class = "MSpacerItem"
+    
   if x.elementName == "action":
     var atr=x.widget_get_next_attribute
     result.name = atr.val
-    result.class = "QAction"
+    result.class = "MAction"
     
     
     
@@ -193,22 +260,49 @@ proc init_widgets(x:var XmlParser,parent_name:string):string=
 
     x.next()  
   return str
-
-proc init_widgets_properties(filename:string):string=
+let classes_without_parent =["MVBoxLayer","MHBoxLayer","MGridLayout","MSpacerItem"]
+proc init_widgets_properties(filename:string,parent_name:string):string=
   var s = newFileStream(filename, fmRead)
   var x:XmlParser
   open(x, s, filename)
   var str = ""
+  var str_spacer = ""
+  var isSpacer = false
   while x.kind != xmlEof:
     if x.isGuiElementStart:
       var res = x.widget_get_name_and_class
+      res.name[0]=res.name[0].toLowerAscii()
+      if parent_name != res.name:
+        var par = ""
+        if res.class notin classes_without_parent:
+          par = parent_name
+        if res.class == "MSpacerItem":
+          isSpacer = true
+        else:
+          isSpacer = false
+        if not isSpacer:  
+          str = &"{str}  {parent_name}.{res.name}=new{res.class}({par})\n"
       while not x.isGuiElementEnd and not x.isGuiElementStart :
         if x.elementName == "property" and (x.kind == xmlElementOpen or x.kind == xmlElementStart):
           x.next()
           if x.kind == xmlAttribute:
             var property_name = x.attrValue
-            var s1 = x.compile_property(res.name,property_name)
-            str = &"{str}  {s1}\n"
+            var s1 = ""
+            if isSpacer:
+              s1 = x.compile_property(property_name)
+              if str_spacer != "":
+                str_spacer = &"{s1},{str_spacer}"
+                str= &"{str}  {parent_name}.{res.name} = newMSpacerItem({str_spacer})\n"
+                str_spacer = ""
+              else:
+                str_spacer = s1
+                str_spacer = str_spacer.replace("Qt::","MSpacerItemFlags.")
+            else:
+              s1 = x.compile_property(res.name,property_name)
+              if res.name == parent_name:
+                str = &"{str}  {s1}"
+              else: 
+                 str = &"{str}  {parent_name}.{s1}"
         x.next()
     x.next()
   return str
@@ -235,7 +329,6 @@ proc echo(nd:TNode)=
     echo "parent_widget:",nd.parent_widget.name
 
 
-import mlibrary
 proc widget_tree(x:var XmlParser,paren_widget:TNode): seq[TNode] =
   var s = newMStack[TNode]()
   var row= ""
@@ -301,66 +394,6 @@ proc widget_lay_out*(list:var seq[TNode]):string=
     
 
 
-
-proc compile_property*(x:var XmlParser,parent_element:string):string=
-    var element_name=""
-    var them_name=""
-    var resource_path=""
-    var resource_name=""
-    while x.kind != xmlElementOpen and x.kind != xmlElementStart:
-        x.next()
-        # x.kind.echo
-        # x.elementName.echo
-    # x.elementName.echo
-    if x.elementName == "rect" :
-      var elems = newSeq[string]()
-      while len(elems)<4:
-        x.next()
-        if x.kind == xmlCharData:
-          elems.add(x.elementName)
-          # x.elementName.echo
-      var s1 = &"QRect({elems[0]},{elems[1]},{elems[2]},{elems[3]})"
-      s1.echo     
-      return s1
-    if x.elementName == "string":
-      x.next()
-      if x.kind == xmlCharData:
-        var s1 = &"\"{x.element_name}\""
-        s1.echo
-        return s1
-    if x.elementName == "number" or x.elementName == "enum" or x.elementName == "bool":
-      x.next()
-      if x.kind == xmlCharData:
-        # x.elementName.echo
-        return x.elementName
-    if x.elementName == "size":
-      var elems = newSeq[string]()
-      while len(elems)<2:
-        x.next()
-        if x.kind == xmlCharData:
-          elems.add(x.elementName)
-          # x.elementName.echo
-      var s1 = &"QSize({elems[0]},{elems[1]})"
-      s1.echo
-      return s1
-    if x.elementName == "iconset":
-      x.next()
-      if x.kind == xmlAttribute:
-        if x.attrKey == "them":
-          them_name = x.attrValue
-          x.next
-        if x.attrKey == "resource":
-          resource_path = x.attrValue
-      while x.kind != xmlCharData:
-        x.next
-      resource_name = x.elementName
-      var path = resource_path.splitPath().head
-      var file = resource_name.splitPath().tail
-      path = path & DirSep & file
-      var s1 = &"QIcon(\"{path}\")"
-      s1.echo
-      return s1
-      
           
 
 
@@ -643,11 +676,7 @@ proc compile_xml_2*(filename:string):string=
 
     
 
-when isMainModule:
-  var str=newStructOfQlayoutElements(filename)
-  str =str & init_widgets_properties(filename)
-   
-  str.echo
+when isMainModule:   
   var x: XmlParser
   var s = newFileStream(filename, fmRead)
   open(x, s, filename)
@@ -658,9 +687,11 @@ when isMainModule:
     x.next()
   x.next()
   class = x.attrValue
+  class[0]='M'
   # class.echo
   x.next()
   parent_name = x.attrValue
+  parent_name[0] = parent_name[0].toLowerAscii()
   # parent_name.echo
   var nd = new TNode
   nd.name = parent_name
@@ -668,10 +699,14 @@ when isMainModule:
   nd.class = class
   nd.parent_widget = nil
   # nd.echo
+  var str=newStructOfQlayoutElements(filename)
+  str = &"{str}proc setupUI({parent_name}:{parent_name.capitalizeascii})=\n"
+  str =str & init_widgets_properties(filename,parent_name)
   var wid_tree = widget_tree(x,nd)
   echo "tree done"
   str =str & widget_lay_out(wid_tree) #
-  writeFile("str.nim",str)  echo str
+  writeFile("str.nim",str)  
+  echo str
   str =  init_widgets(x,parent_name)
   echo "________________________________________"
   str.echo

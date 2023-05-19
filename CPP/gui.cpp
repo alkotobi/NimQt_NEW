@@ -2,6 +2,13 @@
 // Created by merhab on 2023/5/13.
 //
 
+#include <QtCore/Qt>
+
+enum LayoutDirection {
+  LayoutDirectionLeftToRight = 0,
+  LayoutDirectionRightToLeft =1,
+  LayoutDirectionAuto =2
+} ;
 enum Alignment {
     Default,
     AlignLeft,
@@ -19,50 +26,7 @@ enum Alignment {
     AlignHorizontal_Mask,
     AlignVertical_Mask
 };
-enum WindowType {
-    Widget, Window, Dialog, Sheet, Drawer, Popup, Tool, ToolTip, SplashScreen, SubWindow, ForeignWindow, CoverWindow
-};
-enum Orientation {
-    Horizontal = 0x1,
-    Vertical = 0x2
-};
-enum Direction {
-    LeftToRight = 0, RightToLeft = 1, TopToBottom = 2, BottomToTop = 3
-};
 
-#include <QtCore/Qt>
-
-
-extern "C"
-int mwindow_type_flags(WindowType flag) {
-    switch (flag) {
-
-        case Widget:
-            return Qt::Widget;
-        case Window:
-            return Qt::Window;
-        case Dialog:
-            return Qt::Dialog;
-        case Sheet:
-            return Qt::Sheet;
-        case Drawer:
-            return Qt::Drawer;
-        case Popup:
-            return Qt::Popup;
-        case Tool:
-            return Qt::Tool;
-        case ToolTip:
-            return Qt::ToolTip;
-        case SplashScreen:
-            return Qt::SplashScreen;
-        case SubWindow:
-            return Qt::SubWindow;
-        case ForeignWindow:
-            return Qt::ForeignWindow;
-        case CoverWindow:
-            return Qt::CoverWindow;
-    }
-}
 extern "C"
 int malignment_flags(Alignment flag) {
     switch (flag) {
@@ -102,6 +66,46 @@ int malignment_flags(Alignment flag) {
 
 }
 
+enum WindowType {
+    Widget, Window, Dialog, Sheet, Drawer, Popup, Tool, ToolTip, SplashScreen, SubWindow, ForeignWindow, CoverWindow
+};
+extern "C"
+int mwindow_type_flags(WindowType flag) {
+    switch (flag) {
+
+        case Widget:
+            return Qt::Widget;
+        case Window:
+            return Qt::Window;
+        case Dialog:
+            return Qt::Dialog;
+        case Sheet:
+            return Qt::Sheet;
+        case Drawer:
+            return Qt::Drawer;
+        case Popup:
+            return Qt::Popup;
+        case Tool:
+            return Qt::Tool;
+        case ToolTip:
+            return Qt::ToolTip;
+        case SplashScreen:
+            return Qt::SplashScreen;
+        case SubWindow:
+            return Qt::SubWindow;
+        case ForeignWindow:
+            return Qt::ForeignWindow;
+        case CoverWindow:
+            return Qt::CoverWindow;
+    }
+}
+
+enum Orientation {
+    Horizontal = 0x1,
+    Vertical = 0x2
+};
+
+
 extern "C"
 int morientation_flags(Orientation flag) {
     switch (flag) {
@@ -112,6 +116,12 @@ int morientation_flags(Orientation flag) {
     }
     return 0;
 }
+
+
+enum Direction {
+    LeftToRight = 0, RightToLeft = 1, TopToBottom = 2, BottomToTop = 3
+};
+
 
 
 #include <cstdlib>
@@ -197,6 +207,8 @@ typedef void (*VMFnPtrChar)(char*);
 typedef void (*VMFnPtrCharPtr)(char*,void*);
 
 //MLineEdit
+enum EchoMode { Normal=0, NoEcho=1, Password=2, PasswordEchoOnEdit=3};
+
 #include <QtWidgets/QLineEdit>
 class MLineEdit : public QLineEdit {
 private:
@@ -258,6 +270,11 @@ char *mline_edit_get_text(MLineEdit *self) {
     return cstring_new_clone(self->text().toUtf8().data());
 }
 
+extern "C"
+void mline_edit_set_echo_mode(MLineEdit* self , EchoMode mode){
+  self->setEchoMode((QLineEdit::EchoMode)mode);  
+}
+
 //MObject
 #include <QtCore/QObject>
 
@@ -291,7 +308,24 @@ void mobject_set_object_name(MObject *self, const char *name) {
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QWidget>
 
+//MWidget
+
 typedef QWidget MWidget;
+
+extern "C"
+void mwidget_set_geometry(MWidget* self,int x, int y, int width, int height){
+  self->setGeometry(QRect(x,y,width,height));
+}
+
+extern "C"
+void mwidget_set_window_title(MWidget* self,const char* title){
+  self->setWindowTitle(title);
+}
+extern "C"
+void mwidget_set_layout_direction(MWidget* self , LayoutDirection dir){
+  self->setLayoutDirection((Qt::LayoutDirection) dir);
+}
+//MLayout
 typedef QLayout MLayout;
 extern "C"
 void mlayout_add_widget(MLayout *self, MWidget *widget) {
@@ -373,15 +407,25 @@ void micon_add_file(MIcon *self, const char *file_name) {
 
 typedef QAction MAction;
 extern "C"
-MAction *m_action_new(MObject *parent) {
+MAction *maction_new(MObject *parent) {
     return new(std::nothrow) MAction(parent);
 }
 
 extern "C"
-void m_action_set_icon(MAction *self, const char *icon_path) {
+void maction_set_icon(MAction *self, const char *icon_path) {
     MIcon icon;
     icon.addFile(MString::fromUtf8(icon_path));
     self->setIcon(icon);
+}
+
+extern "C"
+void maction_set_text(MAction* self,const char* text){
+  self->setText(text);
+}
+#include <QKeySequence>
+extern "C"
+void maction_set_shortcut(MAction* self,const char* shortcut){
+  self->setShortcut(QKeySequence(shortcut));
 }
 
 #include <QtWidgets/QApplication>
@@ -655,18 +699,53 @@ char* mpush_button_get_text(MPushButton* self ){
 #include <QtWidgets/QSpacerItem>
 typedef QSpacerItem MSpacerItem;
 extern "C"
-MSpacerItem* mspacer_item_new(int w,int h,int direction,Orientation orientation){
+MSpacerItem* mspacer_item_new(int w,int h,Orientation orientation){
     MSpacerItem* s =0;
     switch (orientation) {
         case Horizontal:
-            s= new (std::nothrow) QSpacerItem(0,0,QSizePolicy::Expanding, QSizePolicy::Minimum);
+	  s= new (std::nothrow) QSpacerItem(w,h,QSizePolicy::Expanding, QSizePolicy::Minimum);
             break;
         case Vertical:
-            s= new (std::nothrow) QSpacerItem(0,0,QSizePolicy::Minimum, QSizePolicy::Expanding);
+	  s= new (std::nothrow) QSpacerItem(w,h,QSizePolicy::Minimum, QSizePolicy::Expanding);
             break;
     }
     return s;
 }
 
+//MComboBox
+#include <QtWidgets/QComboBox>
+class MComboBox: public QComboBox{
+private:
+public:
+  MComboBox(MWidget* parent = 0):QComboBox(parent){
+    
+  }
+};
+extern "C"
+MComboBox* mcombobox_new(MWidget* parent){
+  return new (std::nothrow) MComboBox(parent);
+}
 
 
+extern "C"
+void mcombobox_set_editable(MComboBox* self,int is_editable){
+  self->setEditable(is_editable);
+}
+
+
+//MDialog
+#include <QtWidgets/QDialog>
+class MDialog : public QDialog{
+
+private:
+
+public:
+  MDialog(MWidget* parent = 0):QDialog(parent){
+    
+  }
+};
+
+extern "C"
+MDialog* mdialog_new(MWidget* parent){
+  return new (std::nothrow) MDialog(parent);
+}

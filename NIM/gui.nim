@@ -2,6 +2,17 @@ const wid_lib* = "/Users/merhab/dev/nim/NimQt/CPP/build/libGUI.dylib"
 type
   VMFnPtrCharPtr* = proc (text:cstring,sender:pointer){.cdecl.}
 type
+    Direction* =enum
+        LeftToRight=0
+        RightToLeft=1
+        TopToBottom=2
+        BottomToTop=3
+
+    LayoutDirection* = enum
+      LayoutDirectionLeftToRight
+      LayoutDirectionRightToLeft
+      LayoutDirectionAuto
+    MLayoutDirectionFlags* = LayoutDirection
     Alignment* = enum
       Default
       AlignLeft
@@ -18,6 +29,13 @@ type
       AlignTrailing
       AlignHorizontal_Mask
       AlignVertical_Mask
+type
+  MRect* = object of RootObj
+    # int x, int y, int width, int height
+    x:int
+    y:int
+    width:int
+    height:int
 
 proc cstring_free(str:cstring): void {.importc: "cstring_free_v1", dynlib: wid_lib}
 
@@ -114,12 +132,24 @@ proc setParent*(self:MWidget,parent:MWidget)=
 
 proc setLayout*(self: MWidget , layout:MLayoutItem)=
     mwidget_set_layout(self.getObj,layout.getObj)
-        
+
+proc mwidget_set_geometry(self:MTObject,x:cint,y:cint,width:cint,height:cint) {.importc:"mwidget_set_geometry",dynlib:wid_lib}
+proc setGeometry*(self:MWidget,rect:MRect)=
+  mwidget_set_geometry(self.getObj,rect.x.cint,rect.y.cint,rect.width.cint,rect.height.cint)
+
+
+proc mwidget_set_window_title(self:MTObject,title:cstring):void {.importc:"mwidget_set_window_title",dynlib:wid_lib}
+proc setWindowTitle*(self:MWidget,title:string)=
+  mwidget_set_window_title(self.getObj,title.cstring)
+
+proc mwidget_set_layout_direction(self:MTObject,dir:cint):void {.importc:"mwidget_set_layout_direction",dynlib:wid_lib}
+proc setLayoutDirection*(self:MWidget,dir:LayoutDirection)=
+  mwidget_set_layout_direction(self.getObj(),dir.cint)
 #MApplication
 
 proc mapplication_new(): MTObject {.importc: "mapplication_new2", dynlib: wid_lib}
 proc mapplication_exec(self:MTObject): cint {.importc: "mapplication_exec", dynlib: wid_lib}
-proc mapplication_Muit(self:MTObject): void {.importc: "mapplication_Muit", dynlib: wid_lib}
+proc mapplication_quit(self:MTObject): void {.importc: "mapplication_quit", dynlib: wid_lib}
 type
     MApplication* = ref object of MObject
 
@@ -130,8 +160,8 @@ proc newMApplication*():MApplication=
 proc exec*(self:MApplication):int=
     result = mapplication_exec(self.getObj)
 
-proc Muit* (self:MApplication)=
-    mapplication_Muit(self.getObj)
+proc quit* (self:MApplication)=
+    mapplication_quit(self.getObj)
 
 
 
@@ -139,12 +169,21 @@ proc Muit* (self:MApplication)=
 proc maction_new(parent: MTObject): MTObject  {.importc: "maction_new", dynlib: wid_lib}
 
 type
-    MAction = ref object of MObject
+    MAction* = ref object of MObject
 
 proc newMAction*(parent :MObject = nil):MAction =
     new result
     result.setObj(maction_new(nil))   
     result.setParent(parent)
+proc maction_set_icon(self:MTObject,icon_path:cstring) {.importc:"maction_set_icon",dynlib:wid_lib}
+proc setIcon*(self:MAction,iconPath:string)=
+  maction_set_icon(self.getObj,iconPath.cstring)
+proc maction_set_text(self:MTObject,text:cstring) {.importc:"maction_set_text",dynlib:wid_lib}
+proc setText*(self:MAction,text:string)=
+  maction_set_text(self.getObj(),text.cstring)
+proc maction_set_shortcut(self:MTObject,shortcut:cstring) {.importc:"maction_set_shortcut",dynlib:wid_lib}
+proc setShortcut*(self:MAction,shortcut:string)=
+  maction_set_shortcut(self.getObj(),shortcut.cstring)
 
 #MAbstractButton
 
@@ -192,7 +231,13 @@ proc removeWidget*(self:MLayout,widget:MWidget)=
     mremove_widget(self.getObj,widget.getObj)
     
 #MLineEdit
-
+type
+  EchoMode = enum
+    Normal
+    NoEcho
+    Password
+    PasswordEchoOnEdit
+  MEchoModeFlags = EchoMode
 type
   MLineEdit* = ref object of MWidget
 proc mline_edit_new(parent:MTObject):MTObject {.importc:"mline_edit_new",dynlib:wid_lib}
@@ -211,13 +256,12 @@ proc getText*(self:MLineEdit):string =
 proc mline_edit_on_text_changed_connect(self:MTObject,onTextChange:VMFnPtrCharPtr):void {.cdecl,importc:"mline_edit_on_text_changed_connect",dynlib:wid_lib}
 proc connectOnTextChangeFn*(self:MLineEdit,onTextChange: VMFnPtrCharPtr):void=
   mline_edit_on_text_changed_connect(self.getObj(),onTextChange)
+
+proc mline_edit_set_echo_mode(self:MTObject,mode:cint) {.importc:"mline_edit_set_echo_mode",dynlib:wid_lib}
+proc setEchoMode*(self:MLineEdit,mode:EchoMode)=
+  mline_edit_set_echo_mode(self.getObj(),mode.cint)
 #MBoxLayout
-type
-    Direction* =enum
-        LeftToRight=0
-        RightToLeft=1
-        TopToBottom=2
-        BottomToTop=3
+
 proc mbox_layout_new(dir:cint,parent:MTObject): MTObject {.importc: "mbox_layout_new", dynlib: wid_lib}
 proc mbox_layout_add_layout(self:MTObject,laout:MTObject,stretch:cint):void {.importc: "mbox_layout_add_layout", dynlib: wid_lib}
 proc mbox_layout_add_widget(self:MTObject,widget:MTObject,stretch:cint,alignment:cint):void {.importc: "mbox_layout_add_widget", dynlib: wid_lib}
@@ -311,13 +355,12 @@ type
       Plain
       Raised
       Sunken
+    MFrameShapeFlags = Shape
+    MFrameShadowFlags = Shadow
 
 proc newMframe*(parent:MWidget=nil,shape:Shape=Panel):MFrame=
     new result
-    if parent.isNil:
-       result.setObj(mframe_new(nil,shape.cint))
-       return
-    result.setObj(mframe_new(parent.getObj,shape.cint))
+    result.setObj(mframe_new(nil,shape.cint))
     result.setParent(parent)
 
 proc setShape*(self: MFrame,shape:Shape)=
@@ -351,3 +394,35 @@ proc getText*(self:MLabel): string =
     cstring_free(s)
     
     
+#MSpacerItem
+type
+  MSpacerItem* = ref object of MLayoutItem
+  Orientation* = enum
+    Horizontal = 1
+    Vertical = 2
+  MSpacerItemFlags* = Orientation
+proc mspacer_item_new(w:cint,h:cint,orientation:cint):MTObject {.importc:"mspacer_item_new",dynlib:wid_lib}
+
+proc newMSpacerItem*(w:int,h:int,orientation:Orientation):MSpacerItem=
+  new result
+  result.setObj(mspacer_item_new(w.cint,h.cint,orientation.cint))
+#MComboBox
+type
+  MComboBox* = ref object of MWidget
+proc mcombobox_new(parent:MTObject):MTObject {.importc:"mcombobox_new",dynlib:wid_lib}
+proc newMComboBox*(parent:MWidget):MComboBox=
+  new result
+  result.setObj(mcombobox_new(nil))
+  result.setParent(parent)
+proc mcombobox_set_editable(self:MTObject,is_editable:cint):void {.importc:"mcombobox_set_editable",dynlib:wid_lib}
+proc setEditable*(self:MComboBox,isEditable:bool)=
+  mcombobox_set_editable(self.getObj(),isEditable.cint)
+
+#MDialog
+type
+  MDialog* = ref object of MWidget
+proc mdialog_new(parent:MTObject):MTObject {.importc:"mdialog_new",dynlib:wid_lib}
+proc newMDialog*(parent:MWidget):MDialog=
+  new result
+  result.setObj(mdialog_new(nil))
+  result.setParent(parent)

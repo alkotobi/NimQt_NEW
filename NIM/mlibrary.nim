@@ -25,3 +25,14 @@ proc getCurrent*[T](s: var MStack[T]):T=
 
 proc isEmpty*[T](s: var MStack[T]):bool=
   result = s.data.len == 0
+
+proc join*(str:string,strings:seq[string]):string=
+  var s = strings[0]
+  var last = strings.len-1
+  for i in 1..last:
+    s = s & str & strings[i]
+  return s
+
+when isMainModule:
+  let str = ",".join(@["ans","howa","hiya"])
+  str.echo
