@@ -32,10 +32,10 @@ type
 type
   MRect* = object of RootObj
     # int x, int y, int width, int height
-    x:int
-    y:int
-    width:int
-    height:int
+    x*:int
+    y*:int
+    width*:int
+    height*:int
 
 proc cstring_free(str:cstring): void {.importc: "cstring_free_v1", dynlib: wid_lib}
 
@@ -113,7 +113,7 @@ proc mwidget_set_layout(self: MTObject,layout:MTObject): void  {.importc: "mwidg
 proc mwidget_set_parent(self: MTObject,parent:MTObject): void  {.importc: "mwidget_set_parent", dynlib: wid_lib}
 
 type
-    MWidget* =ref object of MLayoutItem
+    MWidget* =ref object of MObject
 
 proc newMWidget*(parent:MObject=nil):MWidget=
     var obj = mwidget_new(nil)
@@ -233,11 +233,11 @@ proc removeWidget*(self:MLayout,widget:MWidget)=
 #MLineEdit
 type
   EchoMode = enum
-    Normal
-    NoEcho
-    Password
-    PasswordEchoOnEdit
-  MEchoModeFlags = EchoMode
+    EchoModeNormal
+    EchoModeNoEcho
+    EchoModePassword
+    EchoModePasswordEchoOnEdit
+  MEchoModeFlags* = EchoMode
 type
   MLineEdit* = ref object of MWidget
 proc mline_edit_new(parent:MTObject):MTObject {.importc:"mline_edit_new",dynlib:wid_lib}
@@ -291,29 +291,31 @@ proc setdirection*(self:MBoxLayout,direction:Direction)=
 
 proc mhbox_layout_new(parent:MTObject):MTObject {.importc: "mhbox_layout_new", dynlib: wid_lib}
 type
-    MHBoxLayout* = object of MBoxLayout
+    MHBoxLayout* = ref object of MBoxLayout
 
 proc newMHBoxLayout*(parent:MWidget=nil):MBoxLayout=
     new result
-    if parent.isNil:
-      result.setObj(mhbox_layout_new(nil))
-      return
-    result.setObj(mhbox_layout_new(parent.getObj))
+    result.setObj(mhbox_layout_new(nil))
+    result.setParent(parent)
 
+proc mhbox_layout_add_item(self:MTObject,item:MTObject) {.importc:"mhbox_layout_add_item",dynlib:wid_lib}
+proc addItem*(self:MHBoxLayout,item:MLayoutItem)=
+  mhbox_layout_add_item(self.getObj,item.getObj())
 
 #MVBoxLayout
 
 proc mvbox_layout_new(parent:MTObject):MTObject {.importc: "mvbox_layout_new", dynlib: wid_lib}
 type
-    MVBoxLayout* = object of MBoxLayout
+    MVBoxLayout* = ref object of MBoxLayout
 
-proc newMVBoxLayout*(parent:MWidget=nil):MBoxLayout=
+proc newMVBoxLayout*(parent:MWidget=nil):MVBoxLayout=
     new result
-    if parent.isNil:
-      result.setObj(mvbox_layout_new(nil))
-      return
-    result.setObj(mvbox_layout_new(parent.getObj))
+    result.setObj(mvbox_layout_new(nil))
+    result.setParent(parent)
 
+proc mvbox_layout_add_item(self:MTObject,item:MTObject) {.importc:"mvbox_layout_add_item",dynlib:wid_lib}
+proc addItem*(self:MVBoxLayout,item:MLayoutItem)=
+  mvbox_layout_add_item(self.getObj(),item.getObj())
 
 #MGridLayout
 
@@ -325,10 +327,7 @@ type
 
 proc newMGridLayout*(parent:MWidget=nil):MGridLayout =
     new result
-    if parent.isNil:
-      result.setObj(mgrid_layout_new(nil)) 
-      return   
-    result.setObj(mgrid_layout_new(parent.getObj))
+    result.setObj(mgrid_layout_new(nil)) 
     result.setParent(parent)
 
 proc addLayout*(self:MGridLayout,layout:MLayoutItem,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
@@ -336,7 +335,10 @@ proc addLayout*(self:MGridLayout,layout:MLayoutItem,row:int,column:int,rowSpan:i
     
 proc addWidget*(self:MGridLayout,widget:MWidget,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
   mgrid_layout_add_widget(self.getObj,widget.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)
-    
+proc mgrid_layout_add_item(self:MTObject,item:MTObject,row:cint,column:cint,rowSpan:cint,columnSpan:cint,alingnment:cint){.importc: "mgrid_layout_add_item", dynlib: wid_lib}
+proc addItem*(self:MGridLayout,item:MLayoutItem,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
+  mgrid_layout_add_item(self.getObj,item.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)  
+  
 #MFrame
 proc mframe_new(parent:MTObject,win_type:cint): MTObject {.importc: "mframe_new", dynlib: wid_lib}
 proc mframe_set_frame_shape(self:MTObject,win_type:cint): void {.importc: "mframe_set_frame_shape", dynlib: wid_lib}
@@ -344,32 +346,34 @@ proc mframe_set_frame_shadow(self:MTObject,shadow:cint): void {.importc: "mframe
 type
     MFrame* = ref object of MWidget
     Shape* =enum
-        NoFrame
-        Box
-        Panel
-        StyledPanel
-        HLine
-        VLine
-        WinPanel
+        FrameShapeNoFrame
+        FrameShapeBox
+        FrameShapePanel
+        FrameShapeStyledPanel
+        FrameShapeHLine
+        FrameShapeVLine
+        FrameShapeWinPanel
     Shadow* = enum
-      Plain
-      Raised
-      Sunken
-    MFrameShapeFlags = Shape
-    MFrameShadowFlags = Shadow
+      FrameShadowPlain
+      FrameShadowRaised
+      FrameShadowSunken
+    MFrameShapeFlags* = Shape
+    MFrameShadowFlags* = Shadow
 
-proc newMframe*(parent:MWidget=nil,shape:Shape=Panel):MFrame=
+proc newMframe*(parent:MWidget=nil,shape:Shape=FrameShapePanel):MFrame=
     new result
     result.setObj(mframe_new(nil,shape.cint))
     result.setParent(parent)
 
-proc setShape*(self: MFrame,shape:Shape)=
+proc setFrameShape*(self: MFrame,shape:Shape)=
     mframe_set_frame_shape(self.getObj,shape.cint)
 
-proc setShadow*(self:MFrame,shadow:Shadow)=
+proc setFrameShadow*(self:MFrame,shadow:Shadow)=
     mframe_set_frame_shadow(self.getObj,shadow.cint)
 
-
+proc mframe_set_layout(self:MTObject,layout:MTObject) {.importc:"mframe_set_layout",dynlib:wid_lib}
+proc setLayout*(frame:Mframe,layout:MLayout)=
+  mframe_set_layout(frame.getObj(),layout.getObj())
 #MLabel
 
 proc mlabel_new(parent:MTObject): MTObject {.importc: "mlabel_new", dynlib: wid_lib}

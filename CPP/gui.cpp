@@ -3,6 +3,7 @@
 //
 
 #include <QtCore/Qt>
+#include <QFlags>
 
 enum LayoutDirection {
   LayoutDirectionLeftToRight = 0,
@@ -74,7 +75,7 @@ int mwindow_type_flags(WindowType flag) {
     switch (flag) {
 
         case Widget:
-            return Qt::Widget;
+	  return Qt::Widget;
         case Window:
             return Qt::Window;
         case Dialog:
@@ -307,6 +308,7 @@ void mobject_set_object_name(MObject *self, const char *name) {
 //MLayout
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QWidget>
+typedef QLayoutItem MLayoutItem;
 
 //MWidget
 
@@ -479,7 +481,7 @@ void mbox_layout_add_layout_v1(MBoxLayout *self, MLayout *layout) {
 
 extern "C"
 void mbox_layout_add_widget(MBoxLayout *self, MWidget *widget, int stretch, Alignment alignment) {
-    self->addWidget(widget, stretch, (Qt::Alignment) malignment_flags(alignment));
+  self->addWidget(widget, stretch, QFlags<Qt::AlignmentFlag>(malignment_flags(alignment)));
 }
 
 extern "C"
@@ -503,17 +505,21 @@ MGridLayout *mgrid_layout_new(MWidget *parent) {
 }
 
 extern "C"
-void mgrid_layout_add_layout(MGridLayout *self, MLayout *layout, int row, int column,
-                             int rowSpan,
-                             int columnSpan, Alignment alignment) {
-    self->addLayout(layout, row, column, rowSpan, columnSpan, (Qt::Alignment) malignment_flags(alignment));
+void mgrid_layout_add_layout(MGridLayout *self, MLayout *layout, int row, int column,int rowSpan,int columnSpan, Alignment alignment) {
+  self->addLayout(layout, row, column, rowSpan, columnSpan,QFlags<Qt::AlignmentFlag>(malignment_flags(alignment)));
+}
+
+
+extern "C"
+void mgrid_layout_add_item(MGridLayout *self, MLayoutItem *item, int row, int column,int rowSpan,int columnSpan, Alignment alignment) {
+    self->addItem(item, row, column, rowSpan, columnSpan, (Qt::Alignment) malignment_flags(alignment));
 }
 
 extern "C"
 void mgrid_layout_add_widget(MGridLayout *self, MWidget *widget, int row, int column,
                              int rowSpan,
                              int columnSpan, Alignment alignment) {
-    self->addWidget(widget, row, column, rowSpan, columnSpan, (Qt::Alignment) malignment_flags(alignment));
+    self->addWidget(widget, row, column, rowSpan, columnSpan, QFlags<Qt::AlignmentFlag>(malignment_flags(alignment)));
 }
 
 //MHBoxLayout
@@ -530,16 +536,29 @@ MHBoxLayout *mhbox_layout_new_v1() {
     return new(std::nothrow) MHBoxLayout();
 }
 
+extern "C"
+void mhbox_layout_add_item(MHBoxLayout* self , MLayoutItem* item){
+    self->addItem(item);
+}
+
+
 //QVBoxLayout
 typedef QVBoxLayout MVBoxLayout;
 extern "C"
 MVBoxLayout* mvbox_layout_new(MWidget* parent){
+    std::cout << "mvbox_layout_new";
     return new (std::nothrow) MVBoxLayout(parent);
 }
 
 extern "C"
 MVBoxLayout* mvbox_layout_new_v1(){
+    std::cout << "mvbox_layout_new_v1";
     return new (std::nothrow) MVBoxLayout();
+}
+
+extern "C"
+void mvbox_layout_add_item(MVBoxLayout* self, MLayoutItem* item){
+    self->addItem(item);
 }
 
 
@@ -572,7 +591,7 @@ int mframe_shape_flags(Shape shape) {
     switch (shape) {
 
         case NoFrame:
-            return QFrame::NoFrame;
+	  return QFrame::NoFrame;
         case Box:
             return QFrame::Box;
         case Panel:
@@ -591,17 +610,23 @@ int mframe_shape_flags(Shape shape) {
 typedef QFrame MFrame;
 extern "C"
 MFrame *mframe_new(MWidget *parent, WindowType win_type) {
-    return new(std::nothrow) MFrame(parent, (Qt::WindowFlags) mwindow_type_flags(win_type));
+  int f = mwindow_type_flags(win_type); 
+  return new (std::nothrow) MFrame(parent,QFlags<Qt::WindowType>(f));
 }
 
 extern "C"
 void mframe_set_frame_shape(MFrame *self, Shape shape) {
-    self->setFrameShape((QFrame::Shape) mframe_shape_flags(shape));
+  self->setFrameShape((QFrame::Shape)mframe_shape_flags(shape));
 }
 
 extern "C"
 void mframe_set_frame_shadow(MFrame *self, Shadow shadow) {
     self->setFrameShadow((QFrame::Shadow) mframe_shadow_flags(shadow));
+}
+
+extern "C"
+void mframe_set_layout(MFrame *self, MLayout* layout) {
+    self->setLayout(layout);
 }
 
 //MLabel
@@ -741,11 +766,16 @@ private:
 
 public:
   MDialog(MWidget* parent = 0):QDialog(parent){
-    
+
   }
 };
 
 extern "C"
 MDialog* mdialog_new(MWidget* parent){
   return new (std::nothrow) MDialog(parent);
+}
+
+extern "C"
+void mdialog_show(MDialog* self){
+  self->show();
 }
