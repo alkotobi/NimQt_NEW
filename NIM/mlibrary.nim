@@ -44,7 +44,7 @@ type
     MString
     MFloat
     MNil
-  MVariant* = ref object of RootRef
+  MVariant* = ref object of RootObj
     name:string
     case kind: Kind
     of MInt:
@@ -118,7 +118,31 @@ proc `$`*(self:MVariant):string=
       result = &"name:{self.name}\nkind:{self.kind}\n"
 type
   MVariantSeq* = seq[MVariant]
-
+type
+  MFNBeforSetVal* = proc(oldVar:MVariant,newVar:MVariant):bool
+  MFNAfterSetVal* = proc(self:MVariant)
+  MVariantEvent* = ref object of MVariant
+    beforeSetValFuncs : seq[MFNBeforSetVal]
+    afterSetValFuncs : seq[MFNAfterSetVal]
+proc addBeforSetValFunc(self:MVariantEvent,beforeFunc:MFNBeforSetVal)=
+  if beforeFunc notin self.beforeSetValfuncs:
+    self.beforeSetValFuncs.add(beforeFunc)
+proc addAfterSetValFunc(self:MVariantEvent,afterFunc:MFNAfterSetVal)=
+  if afterFunc notin self.afterSetValfuncs:
+    self.afterSetValFuncs.add(afterFunc)
+proc execBforeSetValFuncs(self:MVariantEvent,newVal:MVariantEvent):bool=
+  for fn in self.beforeSetValFuncs:
+    if not fn(self,newVal):
+      return false
+  return true
+proc execAfterSetValFuncs(self:MVariantEvent)=
+  for fn in self.afterSetValFuncs:
+    fn(self)
+proc setVal(self:MVariantEvent,newVal:MVariantEvent):bool=
+  if self.execBforeSetValFuncs(newVal):
+    self.MVariant().setVal(newVal.MVariant())
+  self.execAfterSetValFuncs()
+  
     
 #-----------------------------
 #MVariant End
