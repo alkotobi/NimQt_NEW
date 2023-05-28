@@ -1,4 +1,69 @@
-import strFormat
+# mlibrary.nim
+#
+# By Merhab Noureddine
+# On Saturday, 27 May 2023.
+#
+#------------------------------------------------------
+import strFormat,strUtils
+
+#--------------------------------
+#int64
+#--------------------------------
+type
+  MTable[T] = ref object of RootObj
+    data:seq[T]
+    index:int64
+proc newMTable*[T](data:seq[T]):MTable[T]=
+  new result
+  result.data =data
+  if data.len>0:
+    result.index = 0
+  else:
+    result.index = -1
+
+proc eof*[T](self:MTable[T]):bool=
+  return self.index == self.data.len()-1
+
+proc bof*[T](self:MTable[T]):bool=
+  return self.index == 0;
+
+proc getCurrent*[T](self:MTable[T]):T=
+  if self.index >= 0:
+    return self.data[self.index]
+  else:
+    assert(false)
+
+proc gotTo*[T](self:MTable[T],ind:int64)=
+  assert(ind<self.data.len)
+  assert(ind >= 0)
+  self.index = ind
+
+proc first*[T](self:MTable[T])=
+  if not self.bof:
+    self.gotTo(0)
+
+proc next*[T](self:MTable[T])=
+  if not self.eof:
+    self.goto self.index+1
+
+proc prior*[T](self:MTable[T])=
+  if not self.bof:
+    self.gotTo(self.index-1)
+
+proc last*[T](self:MTable[T])=
+  if not self.eof:
+    self.gotTo(self.data.len()-1)
+
+proc `[]`*[T](self:MTable[T],index:int64):T=
+  return self.data[index]
+
+proc `[]=`*[T](self:MTable[T],index:int64,val:T)=
+    self.data[index] = val
+
+proc add*[T](self:MTable[T],val:T)=
+  self.data.add(val)
+#--------------------------------
+
 #MStack
 type
   MStack*[T] = object
@@ -44,6 +109,7 @@ type
     MString
     MFloat
     MNil
+    MBigInt
   MVariant* = ref object of RootObj
     name:string
     case kind: Kind
@@ -53,47 +119,35 @@ type
       valString: string
     of MFloat:
       valFloat: float
+    of MBigInt:
+      valBigInt:int64
     of MNil:
-      valNil:bool
+      valNil:string
 proc newMVariant*():MVariant=
   new result
+  result.kind = MNil
+  result.valNil = "nil"
 proc newMVariant*(val:int,name=""):MVariant=
   result = MVariant(name:name,kind:MInt,valInt:val)
 proc newMVariant*(val:float,name=""):MVariant=
   result = MVariant(name:name,kind:MFloat,valFloat:val)
 proc newMVariant*(val:string,name=""):MVariant=
   result = MVariant(name:name,kind:MString,valString:val)
+proc newMVariant*(val:int64,name=""):MVariant=
+  result = MVariant(name:name,kind:MBigInt,valBigInt:val)
 proc getIntValue*(self:MVariant):int=
   assert self.kind == MInt
   result = self.valInt
+proc getBigIntValue*(self:MVariant):int64=
+  assert self.kind == MBigInt
+  result = self.valBigInt
 proc getStringValue*(self:MVariant):string=
   assert self.kind == MString
   result = self.valString
 proc getFloatValue*(self:MVariant):float=
   assert self.kind == MFloat
   result = self.valFloat
-proc init*(self:MVariant,intVal:int,name:string="")=
-  self.kind = MInt
-  self.valInt = intVal
-  self.name = name
-proc init*(self:MVariant,strVal:string,name:string="")=
-  self.kind = MString
-  self.valString = strVal
-  self.name = name
-proc init*(self:MVariant,floatVal:float,name:string="")=
-  self.kind = MFloat
-  self.valFloat = floatVal
-  self.name =name
-proc init*(self:MVariant,name:string="")=
-  self.kind = MNil
-  self.name = name
-proc beforeSetVal(oldVal:MVariant,newVal:MVariant):bool=
-  return true
-proc afterSetVal(self:MVariant)=
-  return
 proc setVal*(self:MVariant,val:MVariant)=
-  if not beforeSetVal(self,val):
-    return
   assert(self.kind == val.kind)
   case self.kind:
     of MInt:
@@ -102,20 +156,63 @@ proc setVal*(self:MVariant,val:MVariant)=
       self.valFloat = val.valFloat
     of MString:
       self.valString = val.valString
+    of MBigInt:
+      self.valBigInt = val.valBigInt
     of MNil:
-      return
-  afterSetVal(self)
-
-proc `$`*(self:MVariant):string=
+      assert(false)
+proc setVal*(self:MVariant,d:int)=
+  assert(self.kind == MInt)
+  self.valInt = d
+proc setVal*(self:MVariant,d:int64)=
+  assert(self.kind == MBigInt)
+  self.valBigInt = d
+proc setVal*(self:MVariant,str:string)=
   case self.kind:
-    of MInt:    
+    of MInt:
+      self.valInt = str.parseInt
+    of MFloat:
+      self.valFloat = str.parseFloat
+    of MString:
+      self.valString = str
+    of MBigInt:
+      self.valBigInt = str.parseBiggestInt
+    of MNil:
+      assert(false)
+proc setVal*(self:MVariant,f:float)=
+  assert(self.kind == MFloat)
+  self.valFloat = f
+
+proc `$`*(self:MVariant):string=  
+  case self.kind:
+    of MInt:
       result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valint}\n"
-    of MFloat:    
+    of MFloat:
       result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valfloat}\n"
-    of MString:    
+    of MString:
       result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valstring}\n"
-    of MNil:    
-      result = &"name:{self.name}\nkind:{self.kind}\n"
+    of MBigInt:
+      result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valBigint}\n"
+    of MNil:
+      assert(false)
+
+proc `==`*(v1:MVariant,v2:MVariant):bool=
+  if v1.kind == MInt and v2.kind == MBigInt:
+     return v1.valInt == v2.valBigInt
+  if v2.kind == MInt and v1.kind == MBigInt:
+     return v2.valInt == v1.valBigInt
+  if v1.kind != v2.kind:
+    return false
+  case v1.kind:
+    of MInt:
+      return v1.valInt == v2.valInt
+    of MFloat:
+      return v1.valFloat == v2.valFloat
+    of MString:
+      return v1.valString == v2.valString
+    of MBigInt:
+      return v1.valBigInt == v2.valBigInt
+    of MNil:
+      assert(false)
 type
   MVariantSeq* = seq[MVariant]
 type
@@ -124,10 +221,10 @@ type
   MVariantEvent* = ref object of MVariant
     beforeSetValFuncs : seq[MFNBeforSetVal]
     afterSetValFuncs : seq[MFNAfterSetVal]
-proc addBeforSetValFunc(self:MVariantEvent,beforeFunc:MFNBeforSetVal)=
+proc addBeforSetValFunc*(self:MVariantEvent,beforeFunc:MFNBeforSetVal)=
   if beforeFunc notin self.beforeSetValfuncs:
     self.beforeSetValFuncs.add(beforeFunc)
-proc addAfterSetValFunc(self:MVariantEvent,afterFunc:MFNAfterSetVal)=
+proc addAfterSetValFunc*(self:MVariantEvent,afterFunc:MFNAfterSetVal)=
   if afterFunc notin self.afterSetValfuncs:
     self.afterSetValFuncs.add(afterFunc)
 proc execBforeSetValFuncs(self:MVariantEvent,newVal:MVariantEvent):bool=
@@ -138,7 +235,7 @@ proc execBforeSetValFuncs(self:MVariantEvent,newVal:MVariantEvent):bool=
 proc execAfterSetValFuncs(self:MVariantEvent)=
   for fn in self.afterSetValFuncs:
     fn(self)
-proc setVal(self:MVariantEvent,newVal:MVariantEvent):bool=
+proc setVal*(self:MVariantEvent,newVal:MVariantEvent):bool=
   if self.execBforeSetValFuncs(newVal):
     self.MVariant().setVal(newVal.MVariant())
   self.execAfterSetValFuncs()
@@ -147,7 +244,72 @@ proc setVal(self:MVariantEvent,newVal:MVariantEvent):bool=
 #-----------------------------
 #MVariant End
 #-----------------------------
+#-----------------------------
+#MFilter3
+#-----------------------------
+type
+  MFilter* = object
+    sql*:string
+    sql0:string
+    vals*:seq[MVariant]
+proc `==`*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} = ?"
+  filter1.sql0 = &"{val.name} = ?" 
+  filter1.vals.add val
+  return filter1
 
-var v = newMVariant(10,"mimi")
-#v.init(5,"ana")
-echo(v)
+proc `>`*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} > ?"
+  filter1.sql0 = &"{val.name} > ?" 
+  filter1.vals.add val
+  return filter1
+
+proc `>=`*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} >= ?"
+  filter1.sql0 = &"{val.name} >= ?" 
+  filter1.vals.add val
+  return filter1
+
+proc `<`*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} < ?"
+  filter1.sql0 = &"{val.name} < ?" 
+  filter1.vals.add val
+  return filter1
+
+proc `<=`*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} <= ?"
+  filter1.sql0 = &"{val.name} <= ?" 
+  filter1.vals.add val
+  return filter1
+
+proc like*(filter1:var MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} like ?"
+  filter1.sql0 = &"{val.name} like ?" 
+  filter1.vals.add val
+  return filter1
+
+proc `and`*(filter1:var MFilter,filter2:MFilter):MFilter=
+  result = filter1
+  filter1.sql = &"{filter1.sql} and {filter2.sql0}"
+  for val in filter2.vals:
+    filter1.vals.add(val)
+
+proc `or`*(filter1:var MFilter,filter2:MFilter):MFilter=
+  result = filter1
+  filter1.sql = &"{filter1.sql} or {filter2.sql0}"
+  for val in filter2.vals:
+    filter1.vals.add(val)
+
+when isMainModule:
+  var v1 = newMVariant(-10,"mimi")
+  var v2 = newMVariant("10","nono")
+  var v3 = newMVariant(-10.int64(),"big")
+  #v.init(5,"ana")
+  echo "v1:",v1
+  echo "v2",v2
+  echo "v3",v3
+  echo "v1==v2:",v1 == v2
+  echo "v1==v3:",v1 == v3
+  echo($(5.int64))
+  v1.setVal("-565")
+  echo "setVal from str:",v1
