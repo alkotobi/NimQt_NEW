@@ -33,26 +33,26 @@ proc getCurrent*[T](self:MTable[T]):T=
   else:
     assert(false)
 
-proc gotTo*[T](self:MTable[T],ind:int64)=
+proc goTo*[T](self:MTable[T],ind:int64)=
   assert(ind<self.data.len)
   assert(ind >= 0)
   self.index = ind
 
 proc first*[T](self:MTable[T])=
   if not self.bof:
-    self.gotTo(0)
+    self.goTo(0)
 
 proc next*[T](self:MTable[T])=
   if not self.eof:
-    self.goto self.index+1
+    self.goTo(self.index+1)
 
 proc prior*[T](self:MTable[T])=
   if not self.bof:
-    self.gotTo(self.index-1)
+    self.goTo(self.index-1)
 
 proc last*[T](self:MTable[T])=
   if not self.eof:
-    self.gotTo(self.data.len()-1)
+    self.goTo(self.data.len()-1)
 
 proc `[]`*[T](self:MTable[T],index:int64):T=
   return self.data[index]
@@ -112,7 +112,7 @@ type
     MBigInt
   MVariant* = ref object of RootObj
     name:string
-    case kind: Kind
+    case kind*: Kind
     of MInt:
       valInt: int
     of MString:
@@ -185,13 +185,13 @@ proc setVal*(self:MVariant,f:float)=
 proc `$`*(self:MVariant):string=  
   case self.kind:
     of MInt:
-      result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valint}\n"
+      result = $ self.valint
     of MFloat:
-      result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valfloat}\n"
+      result = $ self.valfloat
     of MString:
-      result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valstring}\n"
+      result =self.valstring
     of MBigInt:
-      result = &"name:{self.name}\nkind:{self.kind}\nVal:{self.valBigint}\n"
+      result = $ self.valBigint
     of MNil:
       assert(false)
 
@@ -248,55 +248,90 @@ proc setVal*(self:MVariantEvent,newVal:MVariantEvent):bool=
 #MFilter3
 #-----------------------------
 type
-  MFilter* = object
+  MFilter* = ref object
     sql*:string
-    sql0:string
+    field_name*:string
     vals*:seq[MVariant]
-proc `==`*(filter1:var MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} = ?"
-  filter1.sql0 = &"{val.name} = ?" 
+
+proc `$`*(self:MFilter):string=
+  if self.vals.len() == 0:
+    result = self.sql & "\n" & "vals: empty"
+  else:
+    result = self.sql & "\n" & "vals:" & $ self.vals
+ 
+
+
+
+proc `==`*(filter1: MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} = ?" 
   filter1.vals.add val
   return filter1
 
-proc `>`*(filter1:var MFilter,val:MVariant):MFilter=
+proc `==`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
+  assert(filter1.field_name != "")
+  filter1.vals.add(newMVariant(val,filter1.field_name))  
+  filter1.sql = filter1.field_name & " = ? "
+  return filter1
+  
+
+proc `>`*(filter1: MFilter,val:MVariant):MFilter=
   filter1.sql = &"{filter1.sql}{val.name} > ?"
-  filter1.sql0 = &"{val.name} > ?" 
   filter1.vals.add val
   return filter1
 
-proc `>=`*(filter1:var MFilter,val:MVariant):MFilter=
+proc `>`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
+  assert(filter1.field_name != "")
+  filter1.vals.add(newMVariant(val,filter1.field_name))  
+  filter1.sql = filter1.field_name & " > ? "
+  return filter1
+
+proc `>=`*(filter1: MFilter,val:MVariant):MFilter=
   filter1.sql = &"{filter1.sql}{val.name} >= ?"
-  filter1.sql0 = &"{val.name} >= ?" 
   filter1.vals.add val
   return filter1
 
-proc `<`*(filter1:var MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} < ?"
-  filter1.sql0 = &"{val.name} < ?" 
+proc `>=`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
+  assert(filter1.field_name != "")
+  filter1.vals.add(newMVariant(val,filter1.field_name))  
+  filter1.sql = filter1.field_name & " >= ? "
+  return filter1
+
+proc `<`*(filter1: MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql}{val.name} < ?" 
   filter1.vals.add val
   return filter1
 
-proc `<=`*(filter1:var MFilter,val:MVariant):MFilter=
+proc `<`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
+  assert(filter1.field_name != "")
+  filter1.vals.add(newMVariant(val,filter1.field_name))  
+  filter1.sql = filter1.field_name & " < ? "
+  return filter1
+
+proc `<=`*(filter1: MFilter,val:MVariant):MFilter=
   filter1.sql = &"{filter1.sql}{val.name} <= ?"
-  filter1.sql0 = &"{val.name} <= ?" 
   filter1.vals.add val
   return filter1
 
-proc like*(filter1:var MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} like ?"
-  filter1.sql0 = &"{val.name} like ?" 
+proc `<=`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
+  assert(filter1.field_name != "")
+  filter1.vals.add(newMVariant(val,filter1.field_name))  
+  filter1.sql = filter1.field_name & " <= ? "
+  return filter1
+
+proc like*(filter1: MFilter,val:MVariant):MFilter=
+  filter1.sql = &"{filter1.sql} {val.name} like ?" 
   filter1.vals.add val
   return filter1
 
-proc `and`*(filter1:var MFilter,filter2:MFilter):MFilter=
+proc `and`*(filter1: MFilter,filter2:MFilter):MFilter=
   result = filter1
-  filter1.sql = &"{filter1.sql} and {filter2.sql0}"
+  filter1.sql = &"{filter1.sql} and {filter2.sql}"
   for val in filter2.vals:
     filter1.vals.add(val)
 
-proc `or`*(filter1:var MFilter,filter2:MFilter):MFilter=
+proc `or`*(filter1: MFilter,filter2:MFilter):MFilter=
   result = filter1
-  filter1.sql = &"{filter1.sql} or {filter2.sql0}"
+  filter1.sql = &"{filter1.sql} or {filter2.sql}"
   for val in filter2.vals:
     filter1.vals.add(val)
 
@@ -306,10 +341,17 @@ when isMainModule:
   var v3 = newMVariant(-10.int64(),"big")
   #v.init(5,"ana")
   echo "v1:",v1
-  echo "v2",v2
-  echo "v3",v3
+  echo "v2:",v2
+  echo "v3:",v3
   echo "v1==v2:",v1 == v2
   echo "v1==v3:",v1 == v3
   echo($(5.int64))
   v1.setVal("-565")
   echo "setVal from str:",v1
+  
+  var filter = new MFilter
+  filter.sql = "select * from user "
+  var filter2 = new MFilter
+  
+  discard filter == newMVariant(5,"id") and filter2 > newMVariant(10,"id")
+  echo filter
