@@ -1,0 +1,234 @@
+#+property: header-args :tangle ./user.nim
+#+auto_tangle: t
+
+* import
+#+begin_src nim
+import ../mlibrary,strFormat,engine,dbTable
+#+end_src
+
+#+begin_src nim
+  when engine.engine == "SQLITE":
+    import std/db_sqlite
+#+end_src
+
+* type
+#+begin_src nim
+  type
+    User* = ref object of DbTable
+      name,login,pass : MVariant
+#+end_src
+
+* name()
+#+begin_src nim
+proc name*():MFilter=
+  new result
+  result.field_name = "name"
+
+#+end_src
+
+* login()
+#+begin_src nim
+proc login*():MFilter=
+  new result
+  result.field_name = "login"
+
+#+end_src
+
+* pass()
+#+begin_src nim
+proc pass*():MFilter=
+  new result
+  result.field_name = "pass"
+#+end_src
+
+* newUser()
+
+** empty user
+#+begin_src nim
+proc newUser():User=
+  new result
+  init(result.DbTable())
+  result.name = newMVariant("","name")
+  result.pass = newMVariant("","pass")
+  result.login = newMVariant("","login") 
+#+end_src
+
+** with ID
+#+begin_src nim  
+  proc newUser*(id,name,login,pass:MVariant):User=
+    new result
+    init(result.DbTable(),id)
+    result.name = name
+    result.pass = pass
+    result.login =login
+
+#+end_src
+
+
+** no Id
+#+begin_src nim   
+  proc newUser*(name,login,pass:MVariant):User=
+    new result
+    init(result.DbTable())
+    result.name = name
+    result.pass = pass
+    result.login =login
+
+#+end_src
+
+* $()
+#+begin_src nim
+  proc `$`*(self:User):string = 
+    result = &"{self.id}\n{self.name}\n{self.login}\n{self.pass}\n"
+#+end_src
+
+* getFields()
+#+begin_src nim
+  proc getFields*(self:User):seq[MVariant]=
+    result.add self.id
+    result.add self.name
+    result.add self.login
+    result.add self.pass
+#+end_src
+
+* getCaptions()
+#+begin_src nim
+  proc getCaptions*(self:User):seq[string]=
+    result = @["id","name","login","pass"]
+#+end_src
+
+* getFieldscount()
+#+begin_src nim
+  proc getFieldsCount*(self:User):int=
+    result = 4
+#+end_src
+
+* getFieldsnames()
+#+begin_src nim
+  proc getFieldsNames*(self:User):seq[string]=
+    result = @["id","name","login","pass"]
+#+end_src
+
+* newUser()
+** from seq of strings
+#+begin_src nim
+  proc newUser*(strs:seq[string]):User=
+    result = newUser()
+    assert(strs.len() == result.getFieldsCount())
+    fieldsFromStrs(result.getFields(),strs)
+#+end_src
+* Db
+
+** createTable()
+#+begin_src nim
+  proc createTable*(self:User,db:DbConn,engine = "SQLITE"):bool=
+    var str = ""
+    if engine == "SQLITE":
+      str = "CREATE TABLE IF NOT EXISTS user(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,login TEXT,pass TEXT);"
+    elif engine == "MYSQL":
+      str = "CREATE TABLE IF NOT EXISTS user(id INTEGER PRIMARY KEY AUTO_INCREMENT,name TEXT,login TEXT,pass TEXT);"
+    return db.tryExec(str.sql())
+#+end_src
+
+
+** insert()
+#+begin_src nim
+  proc insert*(self:User,db:DbConn):bool=
+    var id= db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",self.name.getStringValue(),self.login.getStringValue(),self.pass.getStringValue())
+    self.id.setVal(id)
+    result = id > 0
+#+end_src
+
+** update()
+#+begin_src nim
+  proc update*(self:User,db:DbConn):bool=
+    var str = &"UPDATE user set name = ? , login = ? , pass = ? WHERE id =?"
+    result = db.tryExec(str.sql,self.name.getStringValue(),self.login.getStringValue(),self.pass.getStringValue(),self.id.getBigIntValue())
+#+end_src
+
+** delete()
+#+begin_src nim
+  proc delete*(self:User,db:DbConn):bool=
+    var str = "DELETE FROM user WHERE id=?"
+    result = db.tryExec(str.sql,self.id.getBigIntValue())
+#+end_src
+
+** userSelect()
+#+begin_src nim
+proc userSelect*(filter:MFilter = nil):MFilter=
+  new result
+  if not filter.isNil():
+    result.sql = "SELECT * FROM user WHERE " & filter.sql 
+    result.vals = filter.vals
+  else:
+    result.sql="SELECT * FROM user"
+#+end_src
+
+
+** all()
+#+begin_src nim
+  proc all*(filter:MFilter,db:DbConn):seq[Row]=
+    if filter.vals.len()==0:
+      return db.getAllRows(filter.sql.sql())
+    var selectStmt = db.prepare(filter.sql)
+    var i = 0;
+    for v in  filter.vals:
+      i += 1
+      case v.kind:
+        of MInt:
+          selectStmt.bindParam(i,v.getIntValue())
+        of MBigInt:
+          selectStmt.bindParam(i,v.getBigIntValue())
+        of MString:
+          selectStmt.bindParam(i,v.getStringValue())
+        of MFloat:
+          selectStmt.bindParam(i,v.getFloatValue())
+        of MNil:
+          selectStmt.bindNull(i)
+    result = getAllRows(db,selectStmt)
+
+#+end_src
+
+* test
+#+begin_src nim
+  ##---------------------------------------
+  ##TESTS
+  #----------------------------------------
+
+  var user = newUser(newMVariant("nour","name"),newMVariant("abi","login"),newMVariant("567","pass"))
+  let db = open("mytest.db", "", "", "")
+  # echo db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",name,login,pass)
+  let v=user.createTable(db)
+  echo "table created:",v
+  echo "insert:",user.insert(db)
+  echo user.id
+  user.name.setVal("alola")
+  echo "update:",user.update(db)
+  var flds = user.getFields()
+  flds[1].setVal("amine")
+  echo "name after change in seq:",user.name
+  discard user.update(db)
+  user.getFields().fieldsFromStrs(@["1","moad","mohamed","123456"])
+  echo user
+
+  var f = userSelect(id() > 0)
+  echo "filter:", f
+  var rows = f.all(db)
+  echo rows
+  var t = newMTable(rows)
+  t.first()
+  echo "first:",t.getCurrent()
+  t.prior()
+  echo "prior after first:",t.getCurrent()
+  t.next()
+  echo "next:",t.getCurrent()
+  t.last()
+  echo "last:",t.getCurrent()
+  t.next()
+  echo "next after last:",t.getCurrent()
+  echo "after get from db:",newUser(t.getCurrent())
+
+
+
+
+#+end_src

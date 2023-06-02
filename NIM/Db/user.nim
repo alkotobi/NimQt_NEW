@@ -1,7 +1,8 @@
 import ../mlibrary,strFormat,engine,dbTable
-echo engine.engine
+
 when engine.engine == "SQLITE":
   import std/db_sqlite
+
 type
   User* = ref object of DbTable
     name,login,pass : MVariant
@@ -10,44 +11,34 @@ proc name*():MFilter=
   new result
   result.field_name = "name"
 
-
 proc login*():MFilter=
   new result
   result.field_name = "login"
 
-
 proc pass*():MFilter=
   new result
   result.field_name = "pass"
-
-proc userSelect*(filter:MFilter = nil):MFilter=
-  new result
-  if not filter.isNil():
-    result.sql = "SELECT * FROM user WHERE " & filter.sql 
-    result.vals = filter.vals
-  else:
-    result.sql="SELECT * FROM user"
 
 proc newUser():User=
   new result
   init(result.DbTable())
   result.name = newMVariant("","name")
   result.pass = newMVariant("","pass")
-  result.login = newMVariant("","login") 
-  
+  result.login = newMVariant("","login")
+
 proc newUser*(id,name,login,pass:MVariant):User=
   new result
   init(result.DbTable(),id)
   result.name = name
   result.pass = pass
   result.login =login
+
 proc newUser*(name,login,pass:MVariant):User=
   new result
   init(result.DbTable())
   result.name = name
   result.pass = pass
   result.login =login
-
 
 proc `$`*(self:User):string = 
   result = &"{self.id}\n{self.name}\n{self.login}\n{self.pass}\n"
@@ -57,10 +48,13 @@ proc getFields*(self:User):seq[MVariant]=
   result.add self.name
   result.add self.login
   result.add self.pass
+
 proc getCaptions*(self:User):seq[string]=
   result = @["id","name","login","pass"]
+
 proc getFieldsCount*(self:User):int=
   result = 4
+
 proc getFieldsNames*(self:User):seq[string]=
   result = @["id","name","login","pass"]
 
@@ -90,6 +84,14 @@ proc delete*(self:User,db:DbConn):bool=
   var str = "DELETE FROM user WHERE id=?"
   result = db.tryExec(str.sql,self.id.getBigIntValue())
 
+proc userSelect*(filter:MFilter = nil):MFilter=
+  new result
+  if not filter.isNil():
+    result.sql = "SELECT * FROM user WHERE " & filter.sql 
+    result.vals = filter.vals
+  else:
+    result.sql="SELECT * FROM user"
+
 proc all*(filter:MFilter,db:DbConn):seq[Row]=
   if filter.vals.len()==0:
     return db.getAllRows(filter.sql.sql())
@@ -109,12 +111,11 @@ proc all*(filter:MFilter,db:DbConn):seq[Row]=
       of MNil:
         selectStmt.bindNull(i)
   result = getAllRows(db,selectStmt)
-  
 
 ##---------------------------------------
 ##TESTS
 #----------------------------------------
- 
+
 var user = newUser(newMVariant("nour","name"),newMVariant("abi","login"),newMVariant("567","pass"))
 let db = open("mytest.db", "", "", "")
 # echo db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",name,login,pass)
@@ -147,6 +148,3 @@ echo "last:",t.getCurrent()
 t.next()
 echo "next after last:",t.getCurrent()
 echo "after get from db:",newUser(t.getCurrent())
-
-
-

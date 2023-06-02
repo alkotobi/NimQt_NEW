@@ -1,0 +1,87 @@
+#+property: header-args :tangle ./dbTable.nim
+#+auto_tangle: t
+
+* intro
+#+begin_src nim
+  # dbTable.nim
+  #
+  # Written on Saturday, 27 May 2023.
+  #
+  #By Merhab Noureddine
+  
+#+end_src
+* imports
+#+begin_src nim
+import ../mlibrary
+
+#+end_src
+
+* types
+#+begin_src nim
+  type
+    DbTable* = ref object of RootObj
+      id*:MVariant
+#+end_src
+* newDbTable
+#+begin_src nim
+  proc newDbTable*():DbTable=
+    new result
+    result.id = newMVariant(-1.int64,"id")
+#+end_src
+
+* init
+#+begin_src nim
+  proc init*(self:DbTable,id:MVariant = nil)=
+    if id.isNil():
+      self.id = newMVariant(-1.int64,"id")
+    else:
+      self.id = id
+#+end_src
+
+
+* getFields
+#+begin_src nim
+  proc getFields*(self:DbTable):seq[MVariant]=
+    result.add self.id
+#+end_src
+
+* fieldsFromStrs
+#+begin_src nim
+  proc fieldsFromStrs*(flds:seq[MVariant],strs:seq[string])=
+    assert(flds.len() == strs.len())
+    var i =0;
+    for fld in flds:
+      fld.setVal(strs[i]) 
+      i.inc
+
+#+end_src
+
+* id
+#+begin_src nim
+  proc id*():MFilter=
+    new result
+    result.vals = newSeq[MVariant]()
+    result.field_name = "id"
+#+end_src
+
+* test
+#+begin_src nim
+  #-------------------------------------
+  #TESTS
+  #-------------------------------------
+  when isMainModule:
+    var t = new(DbTable)
+    t.id = newMVariant(-1,"id")
+    # t.id.setVal 5
+    echo t.id a
+
+#+end_src
+
+#+begin_src sh :results output :tangle no
+  cd ~/dev/nim/nimQt/nim/Db
+  nim c -r --excessiveStackTrace\:on  ./dbTable.nim
+#+end_src
+
+#+RESULTS:
+: -1
+: merhab

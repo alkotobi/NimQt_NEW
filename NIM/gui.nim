@@ -1,4 +1,5 @@
 const wid_lib* = "/Users/merhab/dev/nim/NimQt/CPP/build/libGUI.dylib"
+
 type
   VMFnPtrCharPtr* = proc (text:cstring,sender:pointer){.cdecl.}
 type
@@ -69,8 +70,8 @@ proc getObj*(self:MObject): MTObject =
 
 proc setObj*(self:MObject,obj:MTObject) =
     self.obj = obj
-    
-    
+
+
 proc setParent*(self:MObject,parent:MObject) =
     if not isNil(parent):
       mobject_set_parent(self.obj,parent.obj)
@@ -91,7 +92,7 @@ proc getParent*(self:MObject): MObject =
        obj.setParent(obj.getParent)
        return obj
     else: return nil
-        
+
     result = self.parent
 
 proc setObjectName*(self:MObject,name:string)=
@@ -100,7 +101,6 @@ proc setObjectName*(self:MObject,name:string)=
 
 proc free*(self: MObject) =
     mobject_del(self.obj)
-    
 
 #MLayoutItem
 type
@@ -145,6 +145,7 @@ proc setWindowTitle*(self:MWidget,title:string)=
 proc mwidget_set_layout_direction(self:MTObject,dir:cint):void {.importc:"mwidget_set_layout_direction",dynlib:wid_lib}
 proc setLayoutDirection*(self:MWidget,dir:LayoutDirection)=
   mwidget_set_layout_direction(self.getObj(),dir.cint)
+
 #MApplication
 
 proc mapplication_new(): MTObject {.importc: "mapplication_new2", dynlib: wid_lib}
@@ -162,8 +163,6 @@ proc exec*(self:MApplication):int=
 
 proc quit* (self:MApplication)=
     mapplication_quit(self.getObj)
-
-
 
 #MAction
 proc maction_new(parent: MTObject): MTObject  {.importc: "maction_new", dynlib: wid_lib}
@@ -187,7 +186,7 @@ proc setShortcut*(self:MAction,shortcut:string)=
 
 #MAbstractButton
 
-    
+
 proc mabstract_button_set_text(self: MTObject, text: cstring): void {.importc: "mabstract_button_set_text", dynlib: wid_lib}
 type
     MAbstractButton* = ref object of MWidget
@@ -202,8 +201,6 @@ proc setText*(self:MAbstractButton,text:string)=
     var obj = self.getObj
     mabstract_button_set_text(obj,text.cstring)
 
-
-
 #MPushButton
 
 proc mpush_button_new(parent:MTObject): MTObject {.importc: "mpush_button_new", dynlib: wid_lib}
@@ -215,7 +212,6 @@ proc newMPushButton*(parent:MWidget=nil):MPushButton=
     var obj = mpush_button_new(nil)
     result.setObj(obj)
     result.setParent(parent)
-
 
 #Mlayout
 proc madd_widget(self:MTObject,widget:MTObject): void {.importc: "madd_widget", dynlib: wid_lib}
@@ -229,7 +225,7 @@ proc addWidget*(self:MLayout,widget:MWidget)=
 
 proc removeWidget*(self:MLayout,widget:MWidget)=
     mremove_widget(self.getObj,widget.getObj)
-    
+
 #MLineEdit
 type
   EchoMode = enum
@@ -260,6 +256,7 @@ proc connectOnTextChangeFn*(self:MLineEdit,onTextChange: VMFnPtrCharPtr):void=
 proc mline_edit_set_echo_mode(self:MTObject,mode:cint) {.importc:"mline_edit_set_echo_mode",dynlib:wid_lib}
 proc setEchoMode*(self:MLineEdit,mode:EchoMode)=
   mline_edit_set_echo_mode(self.getObj(),mode.cint)
+
 #MBoxLayout
 
 proc mbox_layout_new(dir:cint,parent:MTObject): MTObject {.importc: "mbox_layout_new", dynlib: wid_lib}
@@ -332,13 +329,13 @@ proc newMGridLayout*(parent:MWidget=nil):MGridLayout =
 
 proc addLayout*(self:MGridLayout,layout:MLayoutItem,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
   mgrid_layout_add_layout(self.getObj,layout.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)
-    
+
 proc addWidget*(self:MGridLayout,widget:MWidget,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
   mgrid_layout_add_widget(self.getObj,widget.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)
 proc mgrid_layout_add_item(self:MTObject,item:MTObject,row:cint,column:cint,rowSpan:cint,columnSpan:cint,alingnment:cint){.importc: "mgrid_layout_add_item", dynlib: wid_lib}
 proc addItem*(self:MGridLayout,item:MLayoutItem,row:int,column:int,rowSpan:int=1,columnSpan:int=1,alignment:Alignment=Default)=
-  mgrid_layout_add_item(self.getObj,item.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)  
-  
+  mgrid_layout_add_item(self.getObj,item.getObj,row.cint,column.cint,rowSpan.cint,columnSpan.cint,alignment.cint)
+
 #MFrame
 proc mframe_new(parent:MTObject,win_type:cint): MTObject {.importc: "mframe_new", dynlib: wid_lib}
 proc mframe_set_frame_shape(self:MTObject,win_type:cint): void {.importc: "mframe_set_frame_shape", dynlib: wid_lib}
@@ -374,6 +371,7 @@ proc setFrameShadow*(self:MFrame,shadow:Shadow)=
 proc mframe_set_layout(self:MTObject,layout:MTObject) {.importc:"mframe_set_layout",dynlib:wid_lib}
 proc setLayout*(frame:Mframe,layout:MLayout)=
   mframe_set_layout(frame.getObj(),layout.getObj())
+
 #MLabel
 
 proc mlabel_new(parent:MTObject): MTObject {.importc: "mlabel_new", dynlib: wid_lib}
@@ -396,8 +394,7 @@ proc getText*(self:MLabel): string =
     let s:cstring = mlabel_get_text(self.getObj)
     result = $mlabel_get_text(self.getObj)
     cstring_free(s)
-    
-    
+
 #MSpacerItem
 type
   MSpacerItem* = ref object of MLayoutItem

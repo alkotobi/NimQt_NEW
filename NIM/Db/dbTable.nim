@@ -4,8 +4,8 @@
 #
 #By Merhab Noureddine
 
-
 import ../mlibrary
+
 type
   DbTable* = ref object of RootObj
     id*:MVariant
@@ -30,11 +30,11 @@ proc fieldsFromStrs*(flds:seq[MVariant],strs:seq[string])=
     fld.setVal(strs[i]) 
     i.inc
 
-
 proc id*():MFilter=
   new result
   result.vals = newSeq[MVariant]()
   result.field_name = "id"
+
 #-------------------------------------
 #TESTS
 #-------------------------------------
@@ -42,5 +42,4 @@ when isMainModule:
   var t = new(DbTable)
   t.id = newMVariant(-1,"id")
   # t.id.setVal 5
-  echo t.id
-
+  echo t.id a
