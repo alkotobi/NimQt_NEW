@@ -213,7 +213,7 @@ proc newMPushButton*(parent:MWidget=nil):MPushButton=
     result.setObj(obj)
     result.setParent(parent)
 
-#Mlayout
+#MLayout
 proc madd_widget(self:MTObject,widget:MTObject): void {.importc: "madd_widget", dynlib: wid_lib}
 proc mremove_widget(self:MTObject,widget:MTObject): void {.importc: "mremove_widget", dynlib: wid_lib}
 
@@ -225,6 +225,10 @@ proc addWidget*(self:MLayout,widget:MWidget)=
 
 proc removeWidget*(self:MLayout,widget:MWidget)=
     mremove_widget(self.getObj,widget.getObj)
+
+proc mlayout_set_contents_margins(self:MTObject,left:cint,top:cint,right:cint,bottom:cint) {.importc:"mlayout_set_contents_margins",dynlib:wid_lib}
+proc setContentsMargins*(self:MLayout,left:int,top:int,right:int,bottom:int)=
+  mlayout_set_contents_margins(self.getObj(),left.cint,top.cint,right.cint,bottom.cint)
 
 #MLineEdit
 type

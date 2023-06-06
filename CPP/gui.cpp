@@ -329,6 +329,11 @@ void mwidget_set_layout_direction(MWidget* self , LayoutDirection dir){
 }
 //MLayout
 typedef QLayout MLayout;
+
+extern "C"
+void mlayout_set_contents_margins(MLayout* self,int left, int top, int right, int bottom){
+  self->setContentsMargins(left,top,right,bottom);
+}
 extern "C"
 void mlayout_add_widget(MLayout *self, MWidget *widget) {
     self->addWidget(widget);

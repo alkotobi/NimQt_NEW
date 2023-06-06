@@ -1,6 +1,6 @@
-import  streams, parsexml, strformat,strutils,os,mlibrary
+import  streams, parsexml, strformat,strutils,os,mlibrary,std/tables
 # var filename = "test.ui"
-var filename = "/Users/merhab/dev/python/mnstock/ui/users/form/ui_user_form.ui"
+var filename = "./ui_user_form.ui"
 proc next_v1(x:var XmlParser)=
   x.next
   # echo x.elementName
@@ -121,7 +121,8 @@ proc compile_property(x:var XmlParser,elementName:string,property_name:string):s
       path = path & DirSep & file
       s1 = &"\"{path}\""
     else: return ""
-
+  if property_name in @["leftMargin","topMargin","rightMargin","bottomMargin"]:
+    return s1 
   s1 = &"{elementName}.set{property_name.capitalizeAscii}({s1})\n"
   return s1
 
@@ -149,8 +150,16 @@ proc isGuiElementEnd(x:var XmlParser):bool=
    result= (x.kind == xmlElementEnd or x.kind == xmlElementClose) and
    (x.elementName in gui_start_names)
 
- 
+proc createNewObj*(class:string,parentClass:string):string=
+  ## create the proc new for the struct created by newStructOfQlayoutElements()
+  result = &"""proc new{class}*(parent:MWidget):{class}=
+  new result
+  let obj = new{parentClass}(parent)
+  result.setObj(obj.getObj)
+  """
+
 proc newStructOfQlayoutElements(file_name:string):string=
+  ## create the like c struct contain all the gui
   var str = ""
   var x: XmlParser
   var ident="  "
@@ -169,6 +178,7 @@ proc newStructOfQlayoutElements(file_name:string):string=
   parent_name = x.attrValue
   parent_name[0]=parent_name[0].toLowerAscii()
   str = &"type {parent_name.capitalizeascii}* = ref object of {class}\n"
+  var str2 = createNewObj(parent_name.capitalizeascii,class)
   while x.kind != xmlEof:
     if x.isAttributeOf "class":
       if x.kind == xmlAttribute:
@@ -178,11 +188,9 @@ proc newStructOfQlayoutElements(file_name:string):string=
         if x.elementName == "name":
           if x.kind == xmlAttribute:
             var obj_name = x.attrValue
-            str = &"{str}{ident}{obj_name}: {class_name}\n"
+            str = &"{str}{ident}{obj_name}*: {class_name}\n"
     elif x.isNodeOf("action") or 
     x.isNodeOf("spacer"):
-
-
       var class_name =""
       if x.elementName == "action":
         class_name = &"M{x.element_name.capitalizeAscii}"
@@ -191,9 +199,9 @@ proc newStructOfQlayoutElements(file_name:string):string=
       x.next_v1()
       if x.kind == xmlAttribute:
         var obj_name = x.attrValue
-        str = &"{str}{ident}{obj_name}: {class_name}\n"
+        str = &"{str}{ident}{obj_name}*: {class_name}\n"
     x.next_v1()
-  str = &"import gui\n{str}"  
+  str = &"import gui\n{str}\n{str2}\n"  
   return str;
 
 proc widget_get_next_attribute(x:var XmlParser):tuple[key:string,val:string]=
@@ -251,15 +259,16 @@ proc init_widgets_properties(filename:string,parent_name:string):string=
   var x:XmlParser
   open(x, s, filename)
   var str = ""
+  var margins = {"leftMargin": "11", "topMargin": "11", "rightMargin": "11", "bottomMargin": "11"}.toTable
   var str_spacer = ""
   var isSpacer = false
+  var currentEter = false
+  var margins_layout_name = ""
   while x.kind != xmlEof:
     while not x.isGuiElementStart and x.kind != xmlEof:
       x.next_v1
     if x.isGuiElementStart:
       var res = x.widget_get_name_and_class
-      if res.name == "verticalLayout_2":
-        echo "stop"
       res.name[0]=res.name[0].toLowerAscii()
       if parent_name != res.name:
         var par = ""
@@ -286,8 +295,19 @@ proc init_widgets_properties(filename:string,parent_name:string):string=
               else:
                 str_spacer = s1
                 str_spacer = str_spacer.replace("Qt::","MSpacerItemFlags.")
-            else:
+            else: 
+              var priorEter = currentEter 
+              currentEter = false              
               s1 = x.compile_property(res.name,property_name)
+              if property_name in @["leftMargin","topMargin","rightMargin","bottomMargin"]:
+                margins_layout_name = res.name
+                currentEter = true
+                margins[property_name] = s1
+                x.next_v1()
+                continue
+              if priorEter == true and currentEter == false:
+                # means all margin staff finished
+                s1 = &"""{margins_layout_name}.setContentsMargins({margins["leftMargin"]}, {margins["topMargin"]}, {margins["rightMargin"]}, {margins["bottomMargin"]})""" & "\n"
               if res.name == parent_name:
                 str = &"{str}  {s1}"
               else: 
@@ -305,7 +325,7 @@ type
     parent_node :   TNode
     parent_widget:  TNode
 
-proc echo(nd:TNode)=
+proc echo*(nd:TNode)=
   echo "------------------------------------------"
   echo "class:",nd.class
   echo "name:",nd.name
@@ -645,12 +665,12 @@ when isMainModule:
   nd.parent_widget = nil
   # nd.echo
   var str=newStructOfQlayoutElements(filename)
-  str = &"{str}proc setupUI({parent_name}:{parent_name.capitalizeascii})=\n"
+  str = &"{str}proc setupUI*({parent_name}:{parent_name.capitalizeascii})=\n"
   str =str & init_widgets_properties(filename,parent_name)
   var wid_tree = widget_tree(x,nd)
   var str2 = widget_lay_out(wid_tree,parent_name)
   str =str & str2 #
-  writeFile("str.nim",str)  
+  writeFile("perser_t.nim",str)  
   str =  init_widgets(x,parent_name)
   echo "________________________________________"
   # str.echo
