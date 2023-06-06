@@ -784,3 +784,73 @@ extern "C"
 void mdialog_show(MDialog* self){
   self->show();
 }
+
+//MAbstractItemModel
+#include <QAbstractItemModel>
+typedef QAbstractItemModel MAbstractItemModel;
+
+//MModelIndex dec
+#include <QModelIndex>
+typedef QModelIndex  MModelIndex;
+
+//MModelIndex imp
+extern "C"
+MModelIndex* mmodel_index_new(MAbstractItemModel* model,int row,int col){
+  MModelIndex* ind = new (std::nothrow) QModelIndex();
+  *ind = model->index(row, col);
+  return ind;
+}
+extern "C"
+int mmodel_index_column(MModelIndex* index){
+  return index->column();
+}
+
+extern "C"
+int mmodel_index_row(MModelIndex* index){
+  return index->row();
+}
+
+extern "C"
+int mmodel_index_isvalid(MModelIndex* index){
+  return index->isValid();
+}
+
+extern "C"
+const MAbstractItemModel * mmodel_index_model(MModelIndex* index){
+  return index->model();
+}
+
+//MAbstractScrollArea
+#include <QAbstractItemView>
+typedef QAbstractItemView MAbstractItemView;
+
+extern "C"
+int mabstract_item_view_alternating_row_colors(MAbstractItemView* self){
+  return self->alternatingRowColors();
+}
+
+extern "C"
+void mabstract_set_item_view_alternating_row_colors(MAbstractItemView* self,int enable){
+  return self->setAlternatingRowColors(enable);
+}
+
+extern "C"
+void mabstract_item_view_close_persistent_editor(MAbstractItemView* self,QModelIndex* index){
+  return self->closePersistentEditor(*index);
+}
+
+
+//MTableView
+#include <QTableView>
+class MTableView : public QTableView{
+private:
+public:
+  explicit MTableView(MWidget *parent = nullptr) :QTableView(parent){
+    
+  }
+};  
+
+extern "C"
+MTableView* mtable_view_new(MWidget* parent){
+  return new (std::nothrow) MTableView(parent);
+}

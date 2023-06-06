@@ -431,3 +431,35 @@ proc newMDialog*(parent:MWidget):MDialog=
   new result
   result.setObj(mdialog_new(nil))
   result.setParent(parent)
+
+#MAbstractItemModel
+type 
+  MAbstractItemModel* = ref object of MObject
+
+#MModelIndex 
+type 
+  MModelIndex* = ref object of MObject
+
+proc mmodel_indx_new(model:MTObject,row:cint,col:cint):MTObject{.importc:"mmodel_index_new",dynlib:wid_lib}
+proc newMModelIndex*(model:MAbstractItemModel,row:int,col:int):MModelIndex=
+  new result
+  result.setObj(mmodel_indx_new(model.getObj(),row.cint,col.cint))
+proc mmodel_index_column(self:MTObject):cint {.importc:"mmodel_index_column",dynlib:wid_lib}
+proc column*(self:MModelIndex):int =
+  result = mmodel_index_column(self.getObj).int
+proc mmodel_index_row(self:MTObject):cint {.importc:"mmodel_index_row",dynlib:wid_lib}
+proc row*(self:MModelIndex):int =
+  result = mmodel_index_row(self.getObj).int
+proc mmodel_index_isvalid(self:MTObject):cint {.importc:"mmodel_index_isvalid",dynlib:wid_lib}
+proc mmodel_index_isvalid*(self:MModelIndex):bool =
+  result = mmodel_index_row(self.getObj).bool
+proc mmodel_index_model(self:MTObject):MTObject {.importc:"mmodel_index_model",dynlib:wid_lib}
+proc model*(self:MModelIndex):MAbstractItemModel =
+  new result
+  result.setObj(mmodel_index_model(self.getObj()))
+  var parent = mobject_get_parent(result.getObj())
+  result.setParent(parent)
+#MAbstractScrollArea
+type
+  MAbstractScrollArea* = ref object of MFrame
+
