@@ -206,7 +206,11 @@ typedef void (*VMFnMouseEvent)(MMouseEvent*);
 typedef void (*VMFnKeyEvent)(QKeyEvent*);
 typedef void (*VMFnPtrChar)(char*);
 typedef void (*VMFnPtrCharPtr)(char*,void*);
-
+typedef int (*IntFnPtr)(void*);
+typedef int(*IntFnIntInt)(int,int);
+typedef float(*FltFnIntInt)(int,int);
+typedef char*(*PtrCharFnIntInt)(int,int);
+typedef int64_t(*Int64FnIntInt)(int,int);
 //MLineEdit
 enum EchoMode { Normal=0, NoEcho=1, Password=2, PasswordEchoOnEdit=3};
 
@@ -838,8 +842,72 @@ extern "C"
 void mabstract_item_view_close_persistent_editor(MAbstractItemView* self,QModelIndex* index){
   return self->closePersistentEditor(*index);
 }
+//MVariant
+typedef QVariant MVariant;
+extern "C"
+MVariant* mvariant_new(){
+  return new (std::nothrow) MVariant();  
+}
+extern "C"
+void mvariant_set_int(MVariant* self,int val){
+  self->setValue(val);  
+}
+void mvariant_set_int64(MVariant* self,int64_t val){
+  self->setValue(val);  
+}
+void mvariant_set_float(MVariant* self,float val){
+  self->setValue(val);  
+}
+void mvariant_set_str(MVariant* self,char* val){
+  self->setValue(val);
+}
+//MTableModel
+typedef QAbstractTableModel MAbstractTableModel;
+typedef enum{DisplayRole = 0,//	The key data to be rendered in the form of text. (QString)
+  DecorationRole =1,//The data to be rendered as a decoration in the form of an icon. (QColor, QIcon or QPixmap)
+  EditRole=2,//The data in a form suitable for editing in an editor. (QString)
+  ToolTipRole=3,//The data displayed in the item's tooltip. (QString)
+  StatusTipRole=4,//The data displayed in the status bar. (QString)
+  WhatsThisRole=5,//The data displayed for the item in "What's This?" mode. (QString)
+  SizeHintRole=13//The size hint for the item that will be supplied to views. (QSize)
+} MItemDataRole;
+typedef QVector<QVariant> MRecord;
+typedef QVector<MRecord> MRecordset;
+class MTableModel : public MAbstractTableModel{
+private:
+  MRecordset dataset;
 
 
+public:
+  void append(MRecord rd){
+    this->dataset.append(rd);
+  }
+
+  
+  explicit MTableModel(int row_count,int column_count,MVariant* (*getValFn)(int,int),MObject* parent = 0):MAbstractTableModel(parent){
+    for (int i=0 ; i < row_count; ++i) {
+      MRecord r;
+      dataset.append(r);
+      for (int j =0; j < column_count; ++j) {
+	MVariant* v = getValFn(i, j);
+	dataset[i].append(*v);
+	delete v;
+      }
+    }
+  }
+  int rowCount(const QModelIndex &parent = QModelIndex()) const {
+    return this->dataset.count();
+  }
+  int columnCount(const QModelIndex &parent = QModelIndex()) const{
+    if (dataset.count()>0) {
+      return dataset[0].count();
+    }
+    return 0;
+  }
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole){
+    
+  }
+};
 //MTableView
 #include <QTableView>
 class MTableView : public QTableView{
@@ -854,3 +922,5 @@ extern "C"
 MTableView* mtable_view_new(MWidget* parent){
   return new (std::nothrow) MTableView(parent);
 }
+
+
