@@ -4,35 +4,26 @@
 #
 #By Merhab Noureddine
 
-import ../mlibrary
+import ../mvariant,../mfilter
 
 type
   DbTable* = ref object of RootObj
-    id*:MVariant
+    id*:ref MInt64Var
 
 proc newDbTable*():DbTable=
   new result
-  result.id = newMVariant(-1.int64,"id")
+  result.id = newVar(-1.int64,"id")
 
-proc init*(self:DbTable,id:MVariant = nil)=
-  if id.isNil():
-    self.id = newMVariant(-1.int64,"id")
-  else:
+proc init*(self:DbTable,id:ref MInt64Var)=
     self.id = id
+proc init*(self:DbTable)=
+    self.id = newVar(-1.int64,"id")
 
-proc getFields*(self:DbTable):seq[MVariant]=
-  result.add self.id
+proc getFields*(self:DbTable):seq[ref MVariant]=
+  result.add(self.id)
 
-proc fieldsFromStrs*(flds:seq[MVariant],strs:seq[string])=
-  assert(flds.len() == strs.len())
-  var i =0;
-  for fld in flds:
-    fld.setVal(strs[i]) 
-    i.inc
 
 proc id*():MFilter=
-  new result
-  result.vals = newSeq[MVariant]()
   result.field_name = "id"
 
 #-------------------------------------
@@ -40,6 +31,6 @@ proc id*():MFilter=
 #-------------------------------------
 when isMainModule:
   var t = new(DbTable)
-  t.id = newMVariant(-1,"id")
+  t.id = newVar(-1.int64,"id")
   # t.id.setVal 5
-  echo t.id a
+  echo t.id

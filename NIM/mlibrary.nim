@@ -245,10 +245,10 @@ proc setVal*(self:MVariantEvent,newVal:MVariantEvent):bool=
 #MVariant End
 #-----------------------------
 #-----------------------------
-#MFilter3
+#MFilter
 #-----------------------------
 type
-  MFilter* = ref object
+  MFilter* = object
     sql*:string
     field_name*:string
     vals*:seq[MVariant]
@@ -263,77 +263,77 @@ proc `$`*(self:MFilter):string=
 
 
 proc `==`*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} = ?" 
-  filter1.vals.add val
-  return filter1
+  result = filter1
+  result.sql = &"{filter1.sql}{val.name} = ?" 
+  result.vals.add val
 
 proc `==`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
   assert(filter1.field_name != "")
-  filter1.vals.add(newMVariant(val,filter1.field_name))  
-  filter1.sql = filter1.field_name & " = ? "
-  return filter1
+  result = filter1
+  result.vals.add(newMVariant(val,filter1.field_name))  
+  result.sql = filter1.field_name & " = ? "
   
 
 proc `>`*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} > ?"
-  filter1.vals.add val
-  return filter1
+  result = filter1
+  result.sql = &"{filter1.sql}{val.name} > ?"
+  result.vals.add val
 
 proc `>`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
   assert(filter1.field_name != "")
-  filter1.vals.add(newMVariant(val,filter1.field_name))  
-  filter1.sql = filter1.field_name & " > ? "
-  return filter1
+  result = filter1
+  result.vals.add(newMVariant(val,filter1.field_name))  
+  result.sql = filter1.field_name & " > ? "
 
 proc `>=`*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} >= ?"
-  filter1.vals.add val
-  return filter1
+  result = filter1
+  result.sql = &"{filter1.sql}{val.name} >= ?"
+  result.vals.add val
 
 proc `>=`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
   assert(filter1.field_name != "")
-  filter1.vals.add(newMVariant(val,filter1.field_name))  
-  filter1.sql = filter1.field_name & " >= ? "
-  return filter1
+  result = filter1
+  result.vals.add(newMVariant(val,filter1.field_name))  
+  result.sql = filter1.field_name & " >= ? "
 
-proc `<`*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} < ?" 
-  filter1.vals.add val
-  return filter1
+proc `<`*(filter1:  MFilter,val:MVariant):MFilter=
+  result = filter1
+  result.sql = &"{filter1.sql}{val.name} < ?" 
+  result.vals.add val
 
 proc `<`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
   assert(filter1.field_name != "")
-  filter1.vals.add(newMVariant(val,filter1.field_name))  
-  filter1.sql = filter1.field_name & " < ? "
-  return filter1
+  result = filter1
+  result.vals.add(newMVariant(val,filter1.field_name))  
+  result.sql = filter1.field_name & " < ? "
 
 proc `<=`*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql}{val.name} <= ?"
-  filter1.vals.add val
-  return filter1
+  result = filter1
+  result.sql = &"{filter1.sql}{val.name} <= ?"
+  result.vals.add val
 
 proc `<=`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
   assert(filter1.field_name != "")
-  filter1.vals.add(newMVariant(val,filter1.field_name))  
-  filter1.sql = filter1.field_name & " <= ? "
-  return filter1
+  result = filter1
+  result.vals.add(newMVariant(val,filter1.field_name))  
+  result.sql = filter1.field_name & " <= ? "
 
 proc like*(filter1: MFilter,val:MVariant):MFilter=
-  filter1.sql = &"{filter1.sql} {val.name} like ?" 
-  filter1.vals.add val
-  return filter1
-
-proc `and`*(filter1: MFilter,filter2:MFilter):MFilter=
   result = filter1
-  filter1.sql = &"{filter1.sql} and {filter2.sql}"
+  result.sql = &"{filter1.sql} {val.name} like ?" 
+  result.vals.add val
+
+proc `and`*(filter1:MFilter,filter2:MFilter):MFilter=
+  result = filter1
+  result.sql = &"{filter1.sql} and {filter2.sql}"
   for val in filter2.vals:
-    filter1.vals.add(val)
+    result.vals.add(val)
 
 proc `or`*(filter1: MFilter,filter2:MFilter):MFilter=
   result = filter1
-  filter1.sql = &"{filter1.sql} or {filter2.sql}"
+  result.sql = &"{filter1.sql} or {filter2.sql}"
   for val in filter2.vals:
-    filter1.vals.add(val)
+    result.vals.add(val)
 
 when isMainModule:
   var v1 = newMVariant(-10,"mimi")
@@ -349,9 +349,9 @@ when isMainModule:
   v1.setVal("-565")
   echo "setVal from str:",v1
   
-  var filter = new MFilter
+  var filter = MFilter()
   filter.sql = "select * from user "
-  var filter2 = new MFilter
-  
-  discard filter == newMVariant(5,"id") and filter2 > newMVariant(10,"id")
+  var filter2 = MFilter()
+  echo ",,,,,,"
+  filter = filter == newMVariant(5,"id") and filter2 > newMVariant(10,"id")
   echo filter

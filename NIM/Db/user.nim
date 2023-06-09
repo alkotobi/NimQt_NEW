@@ -1,39 +1,36 @@
-import ../mlibrary,strFormat,engine,dbTable
+import ../mvariant,../mfilter,../mtable,strFormat,engine,dbTable
 
 when engine.engine == "SQLITE":
   import std/db_sqlite
 
 type
   User* = ref object of DbTable
-    name,login,pass : MVariant
+    name,login,pass : ref MStrVar
 
 proc name*():MFilter=
-  new result
   result.field_name = "name"
 
 proc login*():MFilter=
-  new result
   result.field_name = "login"
 
 proc pass*():MFilter=
-  new result
   result.field_name = "pass"
 
 proc newUser():User=
   new result
   init(result.DbTable())
-  result.name = newMVariant("","name")
-  result.pass = newMVariant("","pass")
-  result.login = newMVariant("","login")
+  result.name = newVar("","name")
+  result.pass = newVar("","pass")
+  result.login = newVar("","login")
 
-proc newUser*(id,name,login,pass:MVariant):User=
+proc newUser*(id:ref MInt64Var,name,login,pass:ref MStrVar):User=
   new result
   init(result.DbTable(),id)
   result.name = name
   result.pass = pass
   result.login =login
 
-proc newUser*(name,login,pass:MVariant):User=
+proc newUser*(name,login,pass:ref MStrVar):User=
   new result
   init(result.DbTable())
   result.name = name
@@ -43,11 +40,11 @@ proc newUser*(name,login,pass:MVariant):User=
 proc `$`*(self:User):string = 
   result = &"{self.id}\n{self.name}\n{self.login}\n{self.pass}\n"
 
-proc getFields*(self:User):seq[MVariant]=
-  result.add self.id
-  result.add self.name
-  result.add self.login
-  result.add self.pass
+proc getFields*(self:User):seq[ref MVariant]=
+  result.add(self.id)
+  result.add(self.name)
+  result.add(self.login)
+  result.add (self.pass)
 
 proc getCaptions*(self:User):seq[string]=
   result = @["id","name","login","pass"]
@@ -57,11 +54,17 @@ proc getFieldsCount*(self:User):int=
 
 proc getFieldsNames*(self:User):seq[string]=
   result = @["id","name","login","pass"]
-
+proc fieldsFromStrs*(self:User,strs:seq[string])=
+  assert(strs.len() == self.getFieldsCount())
+  echo strs[0]
+  self.id.setVal(strs[0])
+  self.name.setVal(strs[1])
+  self.login.setVal(strs[2])
+  self.pass.setVal(strs[3])
 proc newUser*(strs:seq[string]):User=
   result = newUser()
-  assert(strs.len() == result.getFieldsCount())
-  fieldsFromStrs(result.getFields(),strs)
+  fieldsFromStrs(result,strs)
+  # fieldsFromStrs(result.getFields(),strs)
 
 proc createTable*(self:User,db:DbConn,engine = "SQLITE"):bool=
   var str = ""
@@ -72,25 +75,27 @@ proc createTable*(self:User,db:DbConn,engine = "SQLITE"):bool=
   return db.tryExec(str.sql())
 
 proc insert*(self:User,db:DbConn):bool=
-  var id= db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",self.name.getStringValue(),self.login.getStringValue(),self.pass.getStringValue())
+  var id= db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",self.name.val(),self.login.val(),self.pass.val())
   self.id.setVal(id)
   result = id > 0
 
 proc update*(self:User,db:DbConn):bool=
   var str = &"UPDATE user set name = ? , login = ? , pass = ? WHERE id =?"
-  result = db.tryExec(str.sql,self.name.getStringValue(),self.login.getStringValue(),self.pass.getStringValue(),self.id.getBigIntValue())
+  result = db.tryExec(str.sql,self.name.val(),self.login.val(),self.pass.val(),self.id.val())
 
 proc delete*(self:User,db:DbConn):bool=
   var str = "DELETE FROM user WHERE id=?"
-  result = db.tryExec(str.sql,self.id.getBigIntValue())
+  result = db.tryExec(str.sql,self.id.val())
 
-proc userSelect*(filter:MFilter = nil):MFilter=
-  new result
-  if not filter.isNil():
-    result.sql = "SELECT * FROM user WHERE " & filter.sql 
+proc userSelect*():MFilter=
+  result.sql = "SELECT * FROM user"
+
+proc userSelect*(filter:MFilter ):MFilter=
+  if filter.sql != "":
+    result.sql = userSelect().sql & " WHERE " & filter.sql 
     result.vals = filter.vals
   else:
-    result.sql="SELECT * FROM user"
+    result=userSelect()
 
 proc all*(filter:MFilter,db:DbConn):seq[Row]=
   if filter.vals.len()==0:
@@ -100,15 +105,15 @@ proc all*(filter:MFilter,db:DbConn):seq[Row]=
   for v in  filter.vals:
     i += 1
     case v.kind:
-      of MInt:
-        selectStmt.bindParam(i,v.getIntValue())
-      of MBigInt:
-        selectStmt.bindParam(i,v.getBigIntValue())
-      of MString:
-        selectStmt.bindParam(i,v.getStringValue())
-      of MFloat:
-        selectStmt.bindParam(i,v.getFloatValue())
-      of MNil:
+      of "int":
+        selectStmt.bindParam(i,v.MIntVarRef().val())
+      of "int64":
+        selectStmt.bindParam(i,v.MInt64VarRef().val())
+      of "string":
+        selectStmt.bindParam(i,v.MStrVarRef().val())
+      of "float":
+        selectStmt.bindParam(i,v.MFloatVarRef().val())
+      of "nil":
         selectStmt.bindNull(i)
   result = getAllRows(db,selectStmt)
 
@@ -116,7 +121,7 @@ proc all*(filter:MFilter,db:DbConn):seq[Row]=
 ##TESTS
 #----------------------------------------
 
-var user = newUser(newMVariant("nour","name"),newMVariant("abi","login"),newMVariant("567","pass"))
+var user = newUser(newVar("nour","name"),newVar("abi","login"),newVar("567","pass"))
 let db = open("mytest.db", "", "", "")
 # echo db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",name,login,pass)
 let v=user.createTable(db)
@@ -126,10 +131,10 @@ echo user.id
 user.name.setVal("alola")
 echo "update:",user.update(db)
 var flds = user.getFields()
-flds[1].setVal("amine")
+flds[1].MStrVarRef().setVal("amine")
 echo "name after change in seq:",user.name
 discard user.update(db)
-user.getFields().fieldsFromStrs(@["1","moad","mohamed","123456"])
+user.fieldsFromStrs(@["1","moad","mohamed","123456"])
 echo user
 
 var f = userSelect(id() > 0)
@@ -147,4 +152,5 @@ t.last()
 echo "last:",t.getCurrent()
 t.next()
 echo "next after last:",t.getCurrent()
-echo "after get from db:",newUser(t.getCurrent())
+var use = newUser(t.getCurrent())
+echo "after get from db:",use

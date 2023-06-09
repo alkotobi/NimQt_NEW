@@ -55,33 +55,62 @@
 
 #-------------------------
 
-import std/tables
-type
-  Tbl* = Table[string,string]
-  Tbls* = seq[Tbl]
+# import std/tables
+# type
+#   Tbl* = Table[string,string]
+#   Tbls* = seq[Tbl]
 
-# var input = readLine(stdin)
+# # var input = readLine(stdin)
 
-# var user: Tbl
+# # var user: Tbl
 
-# user["me"] = input
-var a = {"me":"lolo","she":"toto"}.toTable
-echo a["me"]
-var s = "gui"
-import macros
+# # user["me"] = input
+# var a = {"me":"lolo","she":"toto"}.toTable
+# echo a["me"]
+# var s = "gui"
+# import macros
 
-const1 ss ="g"
-const module  : string = ss & "ui"
-macro importconst(name: static[string]): untyped =
-  #let value = name.symbol.getImpl
-  #echo "variable name: ", name.repr
-  #echo "default value: ", $value
-  result = newNimNode(nnkImportStmt).add(newIdentNode(name))
+# const ss ="g"
+# const module  : string = ss & "ui"
+# macro importconst(name: static[string]): untyped =
+#   #let value = name.symbol.getImpl
+#   #echo "variable name: ", name.repr
+#   #echo "default value: ", $value
+#   result = newNimNode(nnkImportStmt).add(newIdentNode(name))
 
-importconst(module)
-var app = newMApplication()
-var btn = newMPushButton(nil)
-btn.show()
-echo app.exec()
+# importconst(module)
+# var app = newMApplication()
+# var btn = newMPushButton(nil)
+# btn.show()
+# echo app.exec()
 
+#*********************
+#testing pointers
+#*********************type
 
+type Obj = object
+  name : string
+  age  :int
+var s : seq[ref Obj]
+var o1 = new Obj ; o1[]= Obj(name:"str",age:12)
+s.add(o1)
+s[0].age =15
+echo s[0][]
+echo o1[]
+proc dd(obj:var Obj)=
+  obj.age = 90
+  echo obj.name,",",obj.age
+proc dd(obj:ref Obj)=
+  dd(obj[])
+var o2 : Obj
+o2.name = "nono"
+o2.age = 45
+echo "--------"
+o2.dd()
+echo "-------"
+o2.repr.echo
+
+proc ec(obj:Obj|ref Obj):string=
+  return obj.name
+echo o1.ec()
+echo o2.ec()
