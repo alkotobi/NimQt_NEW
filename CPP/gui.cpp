@@ -842,7 +842,9 @@ extern "C"
 void mabstract_item_view_close_persistent_editor(MAbstractItemView* self,QModelIndex* index){
   return self->closePersistentEditor(*index);
 }
-//MVariant
+//**************************************
+//************** MVariant **************
+//************************************** 
 typedef QVariant MVariant;
 extern "C"
 MVariant* mvariant_new(){
@@ -852,16 +854,21 @@ extern "C"
 void mvariant_set_int(MVariant* self,int val){
   self->setValue(val);  
 }
+extern "C"
 void mvariant_set_int64(MVariant* self,int64_t val){
   self->setValue(val);  
 }
+extern "C"
 void mvariant_set_float(MVariant* self,float val){
   self->setValue(val);  
 }
-void mvariant_set_str(MVariant* self,char* val){
-  self->setValue(val);
+extern "C"
+void mvariant_set_str(MVariant* self,const char* val){
+  self->setValue(QString(val));
 }
-//MTableModel
+//************************************
+//************ MTableModel ***********
+//************************************
 typedef QAbstractTableModel MAbstractTableModel;
 typedef enum{DisplayRole = 0,//	The key data to be rendered in the form of text. (QString)
   DecorationRole =1,//The data to be rendered as a decoration in the form of an icon. (QColor, QIcon or QPixmap)
@@ -875,40 +882,91 @@ typedef QVector<QVariant> MRecord;
 typedef QVector<MRecord> MRecordset;
 class MTableModel : public MAbstractTableModel{
 private:
-  MRecordset dataset;
-
+  MVariant* (*getVal)(int,int,int)=0;//(row,col,role)
+  int (*getColumnCount)()=0;
+  int (*getRowCount)()=0;
 
 public:
-  void append(MRecord rd){
-    this->dataset.append(rd);
-  }
 
   
-  explicit MTableModel(int row_count,int column_count,MVariant* (*getValFn)(int,int),MObject* parent = 0):MAbstractTableModel(parent){
-    for (int i=0 ; i < row_count; ++i) {
-      MRecord r;
-      dataset.append(r);
-      for (int j =0; j < column_count; ++j) {
-	MVariant* v = getValFn(i, j);
-	dataset[i].append(*v);
-	delete v;
-      }
+  explicit MTableModel(MObject* parent = 0):MAbstractTableModel(parent){
+
+  }
+  void setGetVal(MVariant* (*getVal)(int,int,int)){
+    this->getVal=getVal;
+  }
+  void setGetColumnCount(int(*getColumnCount)()){
+    this->getColumnCount=getColumnCount;
+  }
+  void setGetRowCount(int(*getRowCount)()){
+    this->getRowCount = getRowCount;
+  }
+  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override {
+        if (!hasIndex(row, column, parent))
+            return QModelIndex();
+        return createIndex(row, column);
     }
-  }
-  int rowCount(const QModelIndex &parent = QModelIndex()) const {
-    return this->dataset.count();
-  }
-  int columnCount(const QModelIndex &parent = QModelIndex()) const{
-    if (dataset.count()>0) {
-      return dataset[0].count();
+
+  QModelIndex parent(const QModelIndex &child) const override {
+        Q_UNUSED(child);
+        return QModelIndex();
+    }
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override{
+  if (this->getRowCount) {
+      return this->getRowCount();
+      
     }
     return 0;
   }
-  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole){
-    
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override{
+    if (getColumnCount) {
+      return getColumnCount();
+    }
+    return 0;
   }
+  // QVariant data(const QModelIndex &index, int role = Qt::DisplayRole)const override{
+  //   if (getVal) {
+  //     MVariant* v = getVal(index.row(), index.column(), role);
+  //     MVariant  res = *v;
+  //     delete v;
+  //     return res;
+  //   }
+  //   return QVariant();
+  // }
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
+    if (index.isValid()){
+	  if (this->getVal){       
+	    MVariant* v =(this->getVal(index.row(),index.column(), role));
+	    MVariant res = *v;
+	    delete v;
+	    return res;
+	      }
+	  return QVariant();
+    }
+        return QVariant();
+    }
 };
-//MTableView
+
+extern "C"
+MTableModel* mtable_model_new(MObject* parent){
+  return new (std::nothrow) MTableModel(parent);
+}
+
+extern "C"
+void mtable_model_get_val_connect(MTableModel* self,MVariant* (*getVal)(int,int,int)){
+  self->setGetVal(getVal);
+}
+extern "C"
+void mtable_model_get_row_count_connect(MTableModel* self,int(*getRowCount)()){
+  self->setGetRowCount(getRowCount);
+}
+extern "C"
+void mtable_model_get_column_count_connect(MTableModel* self,int(*getColumnCount)()){
+  self->setGetColumnCount(getColumnCount);
+}
+//***************************************
+//************ MTableView ***************
+//***************************************
 #include <QTableView>
 class MTableView : public QTableView{
 private:
@@ -921,6 +979,10 @@ public:
 extern "C"
 MTableView* mtable_view_new(MWidget* parent){
   return new (std::nothrow) MTableView(parent);
+}
+extern "C"
+void mtable_view_set_model(MTableView* self,MAbstractItemModel* model){
+  self->setModel(model);
 }
 
 

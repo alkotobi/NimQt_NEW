@@ -432,11 +432,65 @@ proc newMDialog*(parent:MWidget):MDialog=
   result.setObj(mdialog_new(nil))
   result.setParent(parent)
 
-#MAbstractItemModel
+#**************************************
+#********* MGVariant *********
+#************************************** 
+type
+  MGVariant = ref object of MObject
+proc mvariant_new():MTObject{.importc:"mvariant_new",dynlib:wid_lib}
+proc newMGVariant*():MGVariant=
+  new result 
+  result.setObj(mvariant_new())
+proc mvariant_set_int(self:MTObject,val:cint){.importc:"mvariant_set_int",dynlib:wid_lib}
+proc setValue*(self:MGVariant,val:int)=
+  mvariant_set_int(self.getObj(),val.cint)
+proc mvariant_set_int64(self:MTObject,val:clonglong){.importc:"mvariant_set_int64",dynlib:wid_lib}
+proc setValue*(self:MGVariant,val:int64)=
+  mvariant_set_int64(self.getObj(),val.clonglong)
+proc mvariant_set_float(self:MTObject,val:cfloat){.importc:"mvariant_set_float",dynlib:wid_lib}
+proc setValue*(self:MGVariant,val:float)=
+  mvariant_set_float(self.getObj(),val.cfloat)
+proc mvariant_set_str(self:MTObject,val:cstring){.importc:"mvariant_set_str",dynlib:wid_lib}
+proc setValue*(self:MGVariant,val:string)=
+  mvariant_set_str(self.getObj(),val.cstring)
+#proc mvariant_set_int64(self:MTObject,val:cbigint)
+#**************************************
+#********* MAbstractItemModel *********
+#************************************** 
 type 
   MAbstractItemModel* = ref object of MObject
+  MItemDataRole = enum
+    DisplayRole = 0  #	The key data to be rendered in the form of text. (QString)
+    DecorationRole =1#The data to be rendered as a decoration in the form of an icon. (QColor, QIcon or QPixmap)
+    EditRole=2 # The data in a form suitable for editing in an editor. (QString)
+    ToolTipRole=3 #The data displayed in the item's tooltip. (QString)
+    StatusTipRole=4 #The data displayed in the status bar. (QString)
+    WhatsThisRole=5 #The data displayed for the item in "What's This?" mode. (QString)
+    SizeHintRole=13 #The size hint for the item that will be supplied to views. (QSize)
 
-#MModelIndex 
+
+#**************************************
+#************* MTableModel ************
+#**************************************
+type
+  MTableModel* = ref object of MAbstractItemModel
+proc mtable_model_new(parent:MTObject):MTObject{.importc:"mtable_model_new",dynlib:wid_lib}
+proc newMTableModel*(parent:MObject=nil):MTableModel=
+  new result
+  result.setObj(mtable_model_new(nil))
+  result.setParent(parent)
+proc mtable_model_get_val_connect(self:MTObject,getValProc:proc(row:cint,col:cint,role:cint):MTObject){.cdecl,importc:"mtable_model_get_val_connect",dynlib:wid_lib}
+proc getValConnect*(self:MTableModel,getValProc:proc(row:cint,col:cint,role:cint):MTObject)=
+  mtable_model_get_val_connect(self.getObj(),getValProc)
+proc mtable_model_get_row_count_connect(self:MTObject,getRowCountProc:proc():cint){.cdecl,importc:"mtable_model_get_row_count_connect",dynlib:wid_lib}
+proc getRowCountConnect*(self:MTableModel,getRowCountProc:proc():cint)=
+  mtable_model_get_row_count_connect(self.getObj(),getRowCountProc)
+proc mtable_model_get_column_count_connect(self:MTObject,getColumnCountProc:proc():cint){.cdecl,importc:"mtable_model_get_column_count_connect",dynlib:wid_lib}
+proc getColumnCountConnect*(self:MTableModel,getColumnCountProc:proc():cint)=
+  mtable_model_get_column_count_connect(self.getObj(),getColumnCountProc)
+#**************************************
+#************* MModelIndex ************
+#************************************** 
 type 
   MModelIndex* = ref object of MObject
 
@@ -451,15 +505,58 @@ proc mmodel_index_row(self:MTObject):cint {.importc:"mmodel_index_row",dynlib:wi
 proc row*(self:MModelIndex):int =
   result = mmodel_index_row(self.getObj).int
 proc mmodel_index_isvalid(self:MTObject):cint {.importc:"mmodel_index_isvalid",dynlib:wid_lib}
-proc mmodel_index_isvalid*(self:MModelIndex):bool =
-  result = mmodel_index_row(self.getObj).bool
-proc mmodel_index_model(self:MTObject):MTObject {.importc:"mmodel_index_model",dynlib:wid_lib}
-proc model*(self:MModelIndex):MAbstractItemModel =
+proc isValid*(self:MModelIndex):bool =
+  result = mmodel_index_isvalid(self.getObj).bool
+proc mmodel_index_get_model(self:MTObject):MTObject {.importc:"mmodel_index_model",dynlib:wid_lib}
+proc getModel*(self:MModelIndex):MAbstractItemModel =
   new result
-  result.setObj(mmodel_index_model(self.getObj()))
+  result.setObj(mmodel_index_get_model(self.getObj()))
   var parent = mobject_get_parent(result.getObj())
   result.setParent(parent)
-#MAbstractScrollArea
+#**************************************
+#********* MAbstractScrollArea ********
+#**************************************
 type
   MAbstractScrollArea* = ref object of MFrame
+#**************************************
+#*********** MAbstractItemView ********
+#**************************************
+type 
+  MAbstractItemView = ref object of MAbstractScrollArea
+#**************************************
+#************** MTableView ************
+#**************************************
+type
+  MTableView*  =  ref object of MAbstractItemView
+proc mtable_view_new(parent:MTObject):MTObject {.importc:"mtable_view_new",dynlib:wid_lib}
+proc newMTableView*(parent : MWidget=nil):MTableView=
+  new result
+  result.setObj(mtable_view_new(nil))
+  result.setParent(parent)
+proc mtable_view_set_model(self:MTObject,model:MTObject){.importc:"mtable_view_set_model",dynlib:wid_lib}
+proc setModel*(self:MTableView,model:MAbstractItemModel)=
+  mtable_view_set_model(self.getObj(),model.getObj())
 
+#**********************************
+#************* TEST ***************
+#**********************************
+var app = newMApplication()
+var tbl = newMTableView()
+var model = newMTableModel()
+proc rowCount():cint=
+  return 2.cint
+model.getRowCountConnect(rowCount)
+proc colCount():cint=
+  return 6.cint
+proc data(row:cint,col:cint,role:cint):MTObject=
+  if role.int == DisplayRole.int:
+    var v = newMGVariant()
+    v.setValue($row.int & "," & $col.int);
+    return v.getObj()
+  return newMGVariant().getObj()
+
+model.getColumnCountConnect(colCount)
+model.getValConnect(data)
+tbl.setModel(model)
+tbl.show()
+discard app.exec()
