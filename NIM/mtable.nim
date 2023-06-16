@@ -1,14 +1,19 @@
 type
-  MTable[T] = ref object of RootObj
-    data:seq[T]
-    index:int64
+  MTable*[T] = ref object of RootObj
+    data*:seq[T]
+    index*:int64
+
+proc initMTable*[T](self:MTable,data:seq[T])=
+  self.data =data
+  if data.len>0:
+    self.index = 0
+  else:
+    self.index = -1
+
 proc newMTable*[T](data:seq[T]):MTable[T]=
   new result
   result.data =data
-  if data.len>0:
-    result.index = 0
-  else:
-    result.index = -1
+  initMTable(result,data)
 
 proc eof*[T](self:MTable[T]):bool=
   return self.index == self.data.len()-1

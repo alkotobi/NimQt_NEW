@@ -887,6 +887,14 @@ extern "C"
 char* mvariant_to_cstring(MVariant* self){
   return cstring_new_clone(self->toString().toUtf8().data());
 }
+extern "C"
+char* mvariant_get_type(MVariant* self){
+  const char* s = self->typeName();
+  if(cstring_is_equal(s, "qlonglong")) return cstring_new_clone("int64");
+  else if(cstring_is_equal(s, "QString")) return cstring_new_clone("string");
+  else return cstring_new_clone(self->typeName());
+}
+
 //************************************
 //************ MTableModel ***********
 //************************************

@@ -466,8 +466,25 @@ proc mvariant_to_cstring*(self:MTObject):cstring{.importc:"mvariant_to_cstring",
 proc toString*(self:MGVariant):string=
   var s =  mvariant_to_cstring(self.getObj())
   result = $s
-  #cstring_free(s)
-
+  cstring_free(s)
+proc mvariant_get_type(self:MTObject):cstring{.importc:"mvariant_get_type",dynlib:wid_lib}
+proc getType*(self:MGVariant):string=
+  var s = mvariant_get_type(self.getObj())
+  result = $s
+  cstring_free(s)
+import MVariant
+proc toMVariantRef*(self:MGVariant):ref MVariant=
+  var t = self.getType()
+  case t:
+    of "int":
+      result = newVar(self.toInt()) 
+    of "int64":
+      result = newVar(self.toInt64())
+    of "float":
+      result = newVar(self.toFloat())
+    of "string":
+      result = newVar(self.toString())
+    else: assert(false)
 #**************************************
 #********* MAbstractItemModel *********
 #************************************** 
@@ -575,69 +592,82 @@ proc currentColumn*(self:MTableView):int=
 #**********************************
 #************* TEST ***************
 #**********************************
-var app = newMApplication()
-var tbl = newMTableView()
-var model = newMTableModel()
-var layout = newMHBoxLayout()
-var wid = newMWidget()
-var btn = newMPushButton()
-var dataSet :seq[seq[string]]
-#var record:seq[string]
-proc emptyRecord():seq[string]=
-  var s = newSeq[string]()
-  s.add("1")
-  s.add("2")
-  s.add("3")
-  return s
-dataSet.add(emptyRecord())
+when isMainModule:
+  var test = "MGVariant"
+  if test == "gui":
+    var app = newMApplication()
+    var tbl = newMTableView()
+    var model = newMTableModel()
+    var layout = newMHBoxLayout()
+    var wid = newMWidget()
+    var btn = newMPushButton()
+    var dataSet :seq[seq[string]]
+    #var record:seq[string]
+    proc emptyRecord():seq[string]=
+      var s = newSeq[string]()
+      s.add("1")
+      s.add("2")
+      s.add("3")
+      return s
+    dataSet.add(emptyRecord())
 
-proc btnClicked(){.cdecl.}=
-  dataSet.add(emptyRecord())
-  echo tbl.currentRow()
-  echo "inserted:", model.insertRow(tbl.currentRow()+1)
-btn.onClickedConnect(btnClicked)  
-wid.setLayout(layout)
-layout.addWidget(tbl)
-layout.addWidget(btn)
+    proc btnClicked(){.cdecl.}=
+      dataSet.add(emptyRecord())
+      echo tbl.currentRow()
+      echo "inserted:", model.insertRow(tbl.currentRow()+1)
+    btn.onClickedConnect(btnClicked)  
+    wid.setLayout(layout)
+    layout.addWidget(tbl)
+    layout.addWidget(btn)
 
-proc insertRow(pos:cint)=
-  dataSet.insert(emptyRecord(),pos)
-model.InsertRowConnect(insertRow)
-proc rowCount():cint=
-  return dataSet.len().cint
-model.getRowCountConnect(rowCount)
-proc colCount():cint=
-  return emptyRecord().len().cint
-proc data(row:cint,col:cint,role:cint):MTObject=
-  if role.int == DisplayRole.int or role.int == EditRole.int :
-    var v = newMGVariant()
-    v.setValue(dataSet[row.int][col.int]);
-    return v.getObj()
-  return newMGVariant().getObj()
-proc saveData(row:cint,col:cint,val:MTObject):cint=
-  var s = mvariant_to_cstring(val)
-  echo $s
-  dataSet[row.int][col.int] = $s
-  echo dataSet[row.int][col.int]
-  cstring_free(s)
-  return 1.cint
-proc headersData(col:cint,orientation:cint,role:cint):MTObject=
-  result = mvariant_new()
-  if role == DisplayRole.cint and orientation == Horizontal.cint:
-    if col == 0.cint:
-      mvariant_set_str(result,"col1".cstring)
-    elif col == 1.cint:
-      mvariant_set_str(result,"col2".cstring)
-    elif col == 2.cint:
-      mvariant_set_str(result,"col3".cstring)
+    proc insertRow(pos:cint)=
+      dataSet.insert(emptyRecord(),pos)
+    model.InsertRowConnect(insertRow)
+    proc rowCount():cint=
+      return dataSet.len().cint
+    model.getRowCountConnect(rowCount)
+    proc colCount():cint=
+      return emptyRecord().len().cint
+    proc data(row:cint,col:cint,role:cint):MTObject=
+      if role.int == DisplayRole.int or role.int == EditRole.int :
+        var v = newMGVariant()
+        v.setValue(dataSet[row.int][col.int])
+        result = v.getObj()
+      else:
+        result = newMGVariant().getObj()
+    proc saveData(row:cint,col:cint,val:MTObject):cint=
+      var s = mvariant_to_cstring(val)
+      echo $s
+      dataSet[row.int][col.int] = $s
+      echo dataSet[row.int][col.int]
+      cstring_free(s)
+      return 1.cint
+    proc headersData(col:cint,orientation:cint,role:cint):MTObject=
+      result = mvariant_new()
+      if role == DisplayRole.cint and orientation == Horizontal.cint:
+        if col == 0.cint:
+          mvariant_set_str(result,"col1".cstring)
+        elif col == 1.cint:
+          mvariant_set_str(result,"col2".cstring)
+        elif col == 2.cint:
+          mvariant_set_str(result,"col3".cstring)
     
 
 
-model.headersDataConnect(headersData)    
-model.saveDataConnect(saveData)  
-model.getColumnCountConnect(colCount)
-model.getValConnect(data)
-tbl.setModel(model)
-tbl.setReadOnly(false)
-wid.show()
-discard app.exec()
+    model.headersDataConnect(headersData)    
+    model.saveDataConnect(saveData)  
+    model.getColumnCountConnect(colCount)
+    model.getValConnect(data)
+    tbl.setModel(model)
+    tbl.setReadOnly(false)
+    wid.show()
+    discard app.exec()
+#***********************************
+#******** test MGVariant ***********
+#***********************************
+  if test == "MGVariant":
+    var v = newMGVariant()
+    v.setValue(1.float)
+    echo v.getType()
+    var v1 = v.toMVariantRef()
+    echo v1.kind,":",v1

@@ -1,6 +1,7 @@
 import ./mvariant,strFormat
 type
-  MFilter* = object
+  MFilter* = object 
+    ## not ref
     sql*:string
     field_name*:string
     vals*:seq[ref MVariant]
@@ -102,5 +103,5 @@ when isMainModule:
   filter.sql = "select * from user "
   var filter2 = MFilter()
   echo ",,,,,,"
-  filter = filter == Var(5,"id").MVariant() and filter2 > Var(10,"id").MVariant()
+  filter = filter == newVar(5,"id") and filter2 > newVar(10,"id")
   echo filter

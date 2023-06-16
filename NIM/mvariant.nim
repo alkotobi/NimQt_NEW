@@ -174,14 +174,31 @@ proc `$`*(self:MVariant):string =
     of "float":return $(self.MFloatVar())
 proc `$`*(self:ref MVariant):string = 
   $(self[])
-      
+     
+proc setVal*(self:ref MVariant,val:ref MVariant)=
+  assert(self.kind == val.kind)
+  case self.kind:
+    of "nil": assert(false)
+    of "int":
+      self.MIntVarRef().setVal(val.MIntVarRef().val())
+    of "int64":
+      self.MInt64VarRef().setVal(val.MInt64VarRef().val())
+    of "string":
+      self.MStrVarRef().setVal(val.MStrVarRef().val())
+    of "float":
+      self.MFloatVarRef().setVal(val.MFloatVarRef().val())
+    else: assert(false)
+ 
 #***********test**************8
-proc t (oldVar:MVariant,newVar:MVariant):bool = 
-  echo oldVar.MIntVar()
-  return true
 
-var v = newVar(5)
-v.addBeforSetValFunc(t)
-v.setVal(10,true,true)
-v.setVal("20")
-echo v
+when isMainModule:
+  proc t (oldVar:MVariant,newVar:MVariant):bool = 
+    echo oldVar.MIntVar()
+    return true
+  var v = newVar(5)
+  v.addBeforSetValFunc(t)
+  v.setVal(10,true,true)
+  v.setVal("20")
+  echo v
+  v.setVal(newVar(10))
+  echo "v.setVal(newVar(10)):",v
