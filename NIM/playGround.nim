@@ -88,29 +88,37 @@
 #testing pointers
 #*********************type
 
-type Obj = object
-  name : string
-  age  :int
-var s : seq[ref Obj]
-var o1 = new Obj ; o1[]= Obj(name:"str",age:12)
-s.add(o1)
-s[0].age =15
-echo s[0][]
-echo o1[]
-proc dd(obj:var Obj)=
-  obj.age = 90
-  echo obj.name,",",obj.age
-proc dd(obj:ref Obj)=
-  dd(obj[])
-var o2 : Obj
-o2.name = "nono"
-o2.age = 45
-echo "--------"
-o2.dd()
-echo "-------"
-o2.repr.echo
+# type Obj = object
+#   name : string
+#   age  :int
+# var s : seq[ref Obj]
+# var o1 = new Obj ; o1[]= Obj(name:"str",age:12)
+# s.add(o1)
+# s[0].age =15
+# echo s[0][]
+# echo o1[]
+# proc dd(obj:var Obj)=
+#   obj.age = 90
+#   echo obj.name,",",obj.age
+# proc dd(obj:ref Obj)=
+#   dd(obj[])
+# var o2 : Obj
+# o2.name = "nono"
+# o2.age = 45
+# echo "--------"
+# o2.dd()
+# echo "-------"
+# o2.repr.echo
 
-proc ec(obj:Obj|ref Obj):string=
-  return obj.name
-echo o1.ec()
-echo o2.ec()
+# proc ec(obj:Obj|ref Obj):string=
+#   return obj.name
+# echo o1.ec()
+# echo o2.ec()
+
+var a = 3 # two rightmost bits, at position 0 and 1 are set
+var b = a and 2 # extract bit 1, so b gets the value 2
+echo b
+b = a and 4 # extract bit 3, which is unset, so result is 0
+echo b
+b = a or (4 + 8)
+echo b

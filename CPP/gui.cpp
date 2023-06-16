@@ -190,6 +190,11 @@ char *cstring_new_clone(const char *str) {
     return str2;
 }
 
+extern "C"
+void cstring_free_v1(char* self){
+  mnfree(self);
+}
+
 
 
 #include <QtCore/QString>
@@ -866,6 +871,22 @@ extern "C"
 void mvariant_set_str(MVariant* self,const char* val){
   self->setValue(QString(val));
 }
+extern "C"
+int mvariant_to_int(MVariant* self){
+  return self->toInt();
+}
+extern "C"
+float mvariant_to_float(MVariant* self){
+  return self->toFloat();
+}
+extern "C"
+int64_t mvariant_to_int64(MVariant* self){
+  return self->toLongLong();
+}
+extern "C"
+char* mvariant_to_cstring(MVariant* self){
+  return cstring_new_clone(self->toString().toUtf8().data());
+}
 //************************************
 //************ MTableModel ***********
 //************************************
@@ -885,12 +906,18 @@ private:
   MVariant* (*getVal)(int,int,int)=0;//(row,col,role)
   int (*getColumnCount)()=0;
   int (*getRowCount)()=0;
+  void (*doInsertRow)(int)=0;
+  int (*saveData)(int,int,MVariant*)=0;
+  MVariant* (*getHeadersData)(int , int , int);
 
 public:
 
   
   explicit MTableModel(MObject* parent = 0):MAbstractTableModel(parent){
 
+  }
+  void setSaveData( int (*saveData)(int,int,MVariant*)){
+    this->saveData = saveData;
   }
   void setGetVal(MVariant* (*getVal)(int,int,int)){
     this->getVal=getVal;
@@ -900,6 +927,12 @@ public:
   }
   void setGetRowCount(int(*getRowCount)()){
     this->getRowCount = getRowCount;
+  }
+  void setDoInsertRow(void(*doInsertRow)(int)){
+    this->doInsertRow = doInsertRow;
+  }
+  void setGetHeadersData(MVariant*(*getHeadersData)(int , int , int)){
+    this->getHeadersData = getHeadersData;
   }
   QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override {
         if (!hasIndex(row, column, parent))
@@ -945,6 +978,49 @@ public:
     }
         return QVariant();
     }
+  bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override{
+    if(this->doInsertRow){
+      this->beginInsertRows(parent, row, row + count - 1);
+      for (int i = 0; i < count; ++i) {
+	this->doInsertRow(i+row);
+      }
+      this->endInsertRows();
+      return true;
+    }
+    else{
+      return false;
+    }
+  }
+  bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override{
+    if ( !index.isValid() || role != Qt::EditRole)
+      return false;
+    if(this->saveData){
+      MVariant* v  = new MVariant(value);
+      if(this->saveData(index.row(), index.column(), v)){
+	emit this->dataChanged(index, index,{role});
+	delete v;
+	return true;
+      }
+    }
+    return false;
+  }
+
+QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override {
+  if (getHeadersData){
+  MVariant* v = getHeadersData(section,orientation,role);
+  MVariant vv = *v;
+  delete v;
+  return vv;  
+  }
+  return MVariant();
+}
+  
+      Qt::ItemFlags flags(const QModelIndex &index) const override {
+        if (!index.isValid())
+	  return Qt::NoItemFlags;
+        return Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled;
+    }
+ 
 };
 
 extern "C"
@@ -952,6 +1028,10 @@ MTableModel* mtable_model_new(MObject* parent){
   return new (std::nothrow) MTableModel(parent);
 }
 
+extern "C"
+void mtable_model_insert_row_connect(MTableModel* self,void(*insert_row)(int)){
+  self->setDoInsertRow(insert_row);
+}
 extern "C"
 void mtable_model_get_val_connect(MTableModel* self,MVariant* (*getVal)(int,int,int)){
   self->setGetVal(getVal);
@@ -964,6 +1044,26 @@ extern "C"
 void mtable_model_get_column_count_connect(MTableModel* self,int(*getColumnCount)()){
   self->setGetColumnCount(getColumnCount);
 }
+extern "C"
+void mtable_model_save_data_connect(MTableModel* self,int (*saveData)(int,int,MVariant*)){
+  self->setSaveData(saveData);
+  std::cout << "savedata conected";
+}
+
+extern "C"
+void mtable_model_get_headers_data_connect(MTableModel* self,MVariant* (*getHeadersData)(int,int,int)){
+  self->setGetHeadersData(getHeadersData);
+}
+
+extern "C"
+bool mtable_model_insert_row(MTableModel* self,int position){
+  return self->insertRow(position);
+}
+extern "C"
+bool mtable_model_insert_rows(MTableModel* self,int position,int count){
+  return self->insertRows(position, count);
+}
+
 //***************************************
 //************ MTableView ***************
 //***************************************
@@ -985,4 +1085,22 @@ void mtable_view_set_model(MTableView* self,MAbstractItemModel* model){
   self->setModel(model);
 }
 
+extern "C"
+void mtable_view_set_read_only(MTableView* self,int read_only){
+  if(!read_only){
+    self->setEditTriggers(QAbstractItemView::AnyKeyPressed | QAbstractItemView::DoubleClicked);
+  }
+  else{
+    self->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
+  }
+}
+
+extern "C"
+int mtable_view_current_row(MTableView* self){
+  return self->currentIndex().row();
+}
+extern "C"
+int mtable_view_current_column(MTableView* self){
+  return self->currentIndex().column();
+}

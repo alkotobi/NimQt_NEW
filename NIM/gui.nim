@@ -437,23 +437,37 @@ proc newMDialog*(parent:MWidget):MDialog=
 #************************************** 
 type
   MGVariant = ref object of MObject
-proc mvariant_new():MTObject{.importc:"mvariant_new",dynlib:wid_lib}
+proc mvariant_new*():MTObject{.importc:"mvariant_new",dynlib:wid_lib}
 proc newMGVariant*():MGVariant=
   new result 
   result.setObj(mvariant_new())
-proc mvariant_set_int(self:MTObject,val:cint){.importc:"mvariant_set_int",dynlib:wid_lib}
+proc mvariant_set_int*(self:MTObject,val:cint){.importc:"mvariant_set_int",dynlib:wid_lib}
 proc setValue*(self:MGVariant,val:int)=
   mvariant_set_int(self.getObj(),val.cint)
-proc mvariant_set_int64(self:MTObject,val:clonglong){.importc:"mvariant_set_int64",dynlib:wid_lib}
+proc mvariant_set_int64*(self:MTObject,val:clonglong){.importc:"mvariant_set_int64",dynlib:wid_lib}
 proc setValue*(self:MGVariant,val:int64)=
   mvariant_set_int64(self.getObj(),val.clonglong)
-proc mvariant_set_float(self:MTObject,val:cfloat){.importc:"mvariant_set_float",dynlib:wid_lib}
+proc mvariant_set_float*(self:MTObject,val:cfloat){.importc:"mvariant_set_float",dynlib:wid_lib}
 proc setValue*(self:MGVariant,val:float)=
   mvariant_set_float(self.getObj(),val.cfloat)
-proc mvariant_set_str(self:MTObject,val:cstring){.importc:"mvariant_set_str",dynlib:wid_lib}
+proc mvariant_set_str*(self:MTObject,val:cstring){.importc:"mvariant_set_str",dynlib:wid_lib}
 proc setValue*(self:MGVariant,val:string)=
   mvariant_set_str(self.getObj(),val.cstring)
-#proc mvariant_set_int64(self:MTObject,val:cbigint)
+proc mvariant_to_int*(self:MTObject):cint{.importc:"mvariant_to_int",dynlib:wid_lib}
+proc toInt*(self:MGVariant):int=
+  result = mvariant_to_int(self.getObj()).int
+proc mvariant_to_int64*(self:MTObject):clonglong{.importc:"mvariant_to_int64",dynlib:wid_lib}
+proc toInt64*(self:MGVariant):int64=
+  result = mvariant_to_int64(self.getObj()).int64
+proc mvariant_to_float*(self:MTObject):cfloat{.importc:"mvariant_to_float",dynlib:wid_lib}
+proc toFloat*(self:MGVariant):float=
+  result = mvariant_to_float(self.getObj()).float
+proc mvariant_to_cstring*(self:MTObject):cstring{.importc:"mvariant_to_cstring",dynlib:wid_lib}
+proc toString*(self:MGVariant):string=
+  var s =  mvariant_to_cstring(self.getObj())
+  result = $s
+  #cstring_free(s)
+
 #**************************************
 #********* MAbstractItemModel *********
 #************************************** 
@@ -488,6 +502,18 @@ proc getRowCountConnect*(self:MTableModel,getRowCountProc:proc():cint)=
 proc mtable_model_get_column_count_connect(self:MTObject,getColumnCountProc:proc():cint){.cdecl,importc:"mtable_model_get_column_count_connect",dynlib:wid_lib}
 proc getColumnCountConnect*(self:MTableModel,getColumnCountProc:proc():cint)=
   mtable_model_get_column_count_connect(self.getObj(),getColumnCountProc)
+proc mtable_model_insert_row_connect(self:MTObject,doInsertRow:proc(position:cint)){.cdecl,importc:"mtable_model_insert_row_connect",dynlib:wid_lib}
+proc InsertRowConnect*(self:MTableModel,doInsertRow:proc (position:cint))=
+  mtable_model_insert_row_connect(self.getObj(),doInsertRow)
+proc mtable_model_insert_row(self:MTObject,position:cint):cint{.importc:"mtable_model_insert_row",dynlib:wid_lib}
+proc insertRow*(self:MTableModel,position:int):bool=
+  result=mtable_model_insert_row(self.getObj(),position.cint).bool
+proc mtable_model_save_data_connect(self:MTObject,saveData:proc(row:cint,col:cint,val:MTObject):cint){.cdecl,importc:"mtable_model_save_data_connect",dynlib:wid_lib}
+proc saveDataConnect*(self:MTableModel,saveData:proc(row:cint,col:cint,val:MTObject):cint)=
+  mtable_model_save_data_connect(self.getObj(),saveData)
+proc mtable_model_get_headers_data_connect(self:MTObject,getHeadersData:proc(section:cint,orientation:cint,role:cint):MTObject){.importc:"mtable_model_get_headers_data_connect",dynlib:wid_lib}
+proc headersDataConnect*(self:MTableModel,headersData:proc(section:cint,orientation:cint,role:cint):MTObject)=
+  mtable_model_get_headers_data_connect(self.getObj(),headersData)
 #**************************************
 #************* MModelIndex ************
 #************************************** 
@@ -536,6 +562,15 @@ proc newMTableView*(parent : MWidget=nil):MTableView=
 proc mtable_view_set_model(self:MTObject,model:MTObject){.importc:"mtable_view_set_model",dynlib:wid_lib}
 proc setModel*(self:MTableView,model:MAbstractItemModel)=
   mtable_view_set_model(self.getObj(),model.getObj())
+proc mtable_view_set_read_only(self:MTObject,read_only:cint){.importc:"mtable_view_set_read_only",dynlib:wid_lib}
+proc setReadOnly*(self:MTableView,readOnly:bool)=
+  mtable_view_set_read_only(self.getObj(),readOnly.cint)
+proc mtable_view_current_row(self:MTObject):cint{.importc:"mtable_view_current_row",dynlib:wid_lib}
+proc currentRow*(self:MTableView):int=
+  result = mtable_view_current_row(self.getObj()).int
+proc mtable_view_current_column(self:MTObject):cint{.importc:"mtable_view_current_column",dynlib:wid_lib}
+proc currentColumn*(self:MTableView):int=
+  result = mtable_view_current_column(self.getObj()).int
 
 #**********************************
 #************* TEST ***************
@@ -543,20 +578,66 @@ proc setModel*(self:MTableView,model:MAbstractItemModel)=
 var app = newMApplication()
 var tbl = newMTableView()
 var model = newMTableModel()
+var layout = newMHBoxLayout()
+var wid = newMWidget()
+var btn = newMPushButton()
+var dataSet :seq[seq[string]]
+#var record:seq[string]
+proc emptyRecord():seq[string]=
+  var s = newSeq[string]()
+  s.add("1")
+  s.add("2")
+  s.add("3")
+  return s
+dataSet.add(emptyRecord())
+
+proc btnClicked(){.cdecl.}=
+  dataSet.add(emptyRecord())
+  echo tbl.currentRow()
+  echo "inserted:", model.insertRow(tbl.currentRow()+1)
+btn.onClickedConnect(btnClicked)  
+wid.setLayout(layout)
+layout.addWidget(tbl)
+layout.addWidget(btn)
+
+proc insertRow(pos:cint)=
+  dataSet.insert(emptyRecord(),pos)
+model.InsertRowConnect(insertRow)
 proc rowCount():cint=
-  return 2.cint
+  return dataSet.len().cint
 model.getRowCountConnect(rowCount)
 proc colCount():cint=
-  return 6.cint
+  return emptyRecord().len().cint
 proc data(row:cint,col:cint,role:cint):MTObject=
-  if role.int == DisplayRole.int:
+  if role.int == DisplayRole.int or role.int == EditRole.int :
     var v = newMGVariant()
-    v.setValue($row.int & "," & $col.int);
+    v.setValue(dataSet[row.int][col.int]);
     return v.getObj()
   return newMGVariant().getObj()
+proc saveData(row:cint,col:cint,val:MTObject):cint=
+  var s = mvariant_to_cstring(val)
+  echo $s
+  dataSet[row.int][col.int] = $s
+  echo dataSet[row.int][col.int]
+  cstring_free(s)
+  return 1.cint
+proc headersData(col:cint,orientation:cint,role:cint):MTObject=
+  result = mvariant_new()
+  if role == DisplayRole.cint and orientation == Horizontal.cint:
+    if col == 0.cint:
+      mvariant_set_str(result,"col1".cstring)
+    elif col == 1.cint:
+      mvariant_set_str(result,"col2".cstring)
+    elif col == 2.cint:
+      mvariant_set_str(result,"col3".cstring)
+    
 
+
+model.headersDataConnect(headersData)    
+model.saveDataConnect(saveData)  
 model.getColumnCountConnect(colCount)
 model.getValConnect(data)
 tbl.setModel(model)
-tbl.show()
+tbl.setReadOnly(false)
+wid.show()
 discard app.exec()
