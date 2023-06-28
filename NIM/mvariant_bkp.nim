@@ -1,69 +1,57 @@
-import strUtils
+import strUtils,sugar
 
 const
   String* = "string"
   Int* = "int"
   Int64* = "int64"
   Float* = "float"
-  Nil* = "nil"
 type
   MFNBeforSetVal* = proc(oldVar:MVariant,newVar:MVariant):bool
   MFNAfterSetVal* = proc(self:MVariant)
   MVariantMeta* = ref object of RootObj
     kind*:string
     name*:string
+  MVariant* = object of RootObj
+    kind*:string
+    name*:string
     beforeSetValFuncs* :seq[MFNBeforSetVal]
     afterSetValFuncs* : seq[MFNAfterSetVal]
 
-  MVariant* = object of RootObj
-    meta*:MVariantMeta
-
-proc `$`*(self:MVariantMeta):string=
-  result = self.name & ":" & self.kind & "\n"
-proc init*(self:MVariantMeta,name="",kind=Nil)=
-  self.kind = kind
-  self.name = name
-proc newMVariantMeta*(name="",kind=Nil):MVariantMeta=
-  new result
-  result.init(name,kind)
-
 
 proc execBforeSetValFuncs(self:MVariant|ref MVariant,newVal:MVariant):bool=
-  for fn in self.meta.beforeSetValFuncs:
+  for fn in self.beforeSetValFuncs:
     if not fn(self,newVal):
       return false
   return true
 proc execAfterSetValFuncs(self:MVariant|ref MVariant)=
-  for fn in self.meta.afterSetValFuncs:
+  for fn in self.afterSetValFuncs:
     fn(self)
 proc addBeforSetValFunc*(self:var MVariant,beforeFunc:MFNBeforSetVal)=
-  if beforeFunc notin self.meta.beforeSetValfuncs:
-    self.meta.beforeSetValFuncs.add(beforeFunc)
+  if beforeFunc notin self.beforeSetValfuncs:
+    self.beforeSetValFuncs.add(beforeFunc)
 proc addBeforSetValFunc*(self:ref MVariant,beforeFunc:MFNBeforSetVal)=
   addBeforSetValFunc(self[],beforeFunc)
 proc addAfterSetValFunc*(self:var MVariant,afterFunc:MFNAfterSetVal)=
-  if afterFunc notin self.meta.afterSetValfuncs:
-    self.meta.afterSetValFuncs.add(afterFunc)
+  if afterFunc notin self.afterSetValfuncs:
+    self.afterSetValFuncs.add(afterFunc)
 proc addAfterSetValFunc*(self:ref MVariant,afterFunc:MFNAfterSetVal)=
   addAfterSetValFunc(self[],afterFunc)
 
 type
   MNilVar* = object of MVariant
   MNilVarRef* = ref MNilVar
-let nilMeta = newMVariantMeta("",Nil)
-
 proc newVar*():ref MNilVar=
   new result
-  result.meta = nilMeta
+  result.kind = "nil"
 proc Var*():MNilVar=
-  result.meta = nilMeta
+  result.kind = "nil"
 proc isNil*(self:MVariant|ref MVariant):bool =
-  return self.meta.kind ==  Nil
+  return self.kind ==  "nil"
 
 type MVariantList* = seq[ref MVariant]
 proc `[]`*(varList:MVariantList,name:string):ref MVariant=
   for v in varList:
-    if v.meta.name == name :
+    if v.name == name :
       return v
   return newVar()
 
@@ -73,16 +61,15 @@ type
   MIntVarRef* = ref MIntVar
 proc val*(self: MIntVar|ref MIntVar):int =
   result = self.intVal
-proc init*(self:var MIntVar,val:int,meta = newMVariantMeta(kind=Int))=
-  self.meta = meta
-  self.intVal = val
-proc newVar*(val:int,meta = newMVariantMeta(kind=Int)):ref MIntVar=
+proc newVar*(val:int,name=""):ref MIntVar=
   new result
-  init(result[],val,meta)
-
-proc Var*(val:int,meta = newMVariantMeta(kind=Int)):MIntVar=
-  result.init(val,meta)
-
+  result.name = name
+  result.kind = "int"
+  result.intVal = val
+proc Var*(val:int,name=""):MIntVar=
+  result.name = name
+  result.kind = "int"
+  result.intVal = val
 proc `$`*(self:MIntVar|ref MIntVar):string=
   result = `$`(self.intVal)
 proc setVal*(self:var MIntVar,val:int,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -107,14 +94,15 @@ type
   MInt64VarRef* = ref MIntVar
 proc val*(self: MInt64Var|ref MInt64Var):int64 =
   result = self.int64Val
-proc init*(self:var MInt64Var,val:int64,meta = newMVariantMeta(kind=Int64))=
-  self.meta = meta
-  self.int64Val = val
-proc newVar*(val:int64,meta = newMVariantMeta(kind=Int64)):ref MInt64Var=
+proc newVar*(val:int64,name=""):ref MInt64Var=
   new result
-  result[].init(val,meta)
-proc Var*(val:int64,meta = newMVariantMeta(kind=Int64)):MInt64Var=
-  result.init(val,meta)
+  result.name = name
+  result.kind = "int64"
+  result.int64Val = val
+proc Var*(val:int64,name = ""):MInt64Var=
+  result.name = name
+  result.kind = "int64"
+  result.int64Val = val
 proc `$`*(self:MInt64Var|ref MInt64Var):string=
   result = `$`(self.int64Val)
 proc setVal*(self:var MInt64Var,val:int64,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -139,14 +127,15 @@ type
   MStrVarRef* = ref MStrVar
 proc val*(self: MStrVar|ref MStrVar):string =
   result = self.strVal
-proc init*(self:var MStrVar,val:string,meta = newMVariantMeta(kind=String))=
-  self.meta = meta
-  self.strVal = val
-proc newVar*(val:string,meta = newMVariantMeta(kind=String)):ref MStrVar=
+proc newVar*(val:string,name = ""):ref MStrVar=
   new result
-  result[].init(val,meta)
-proc Var*(val:string,meta = newMVariantMeta(kind=Int64)):MStrVar=
-  result.init(val,meta)
+  result.name = name
+  result.kind = "string"
+  result.strVal = val
+proc Var*(val:string,name = ""):MStrVar=
+  result.name = name
+  result.kind = "string"
+  result.strVal = val
 proc `$`*(self:MStrVar|ref MStrVar):string=
   result = self.strVal
 proc setVal*(self:var MStrVar,val:string,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -167,14 +156,15 @@ type
   MFloatVarRef* = ref MFloatVar
 proc val*(self: MFloatVar|ref MFloatVar):float =
   result = self.floatVal
-proc init*(self:var MFloatVar,val:float,meta = newMVariantMeta(kind=Float))=
-  self.meta = meta
-  self.floatVal = val
-proc newVar*(val:float,meta = newMVariantMeta(kind=Float)):ref MfloatVar=
+proc newVar*(val:float,name = ""):ref MfloatVar=
   new result
-  result[].init(val,meta)
-proc Var*(val:float,meta = newMVariantMeta(kind=Int64)):MFloatVar=
-  result.init(val,meta)
+  result.name = name
+  result.kind = "float"
+  result.floatVal = val
+proc Var*(val:float,name = ""):MFloatVar=
+  result.name = name
+  result.kind = "float"
+  result.floatVal = val
 proc `$`*(self:MFloatVar|ref MFloatVar):string=
   result = $self.floatVal
 proc setVal*(self:var MFloatVar,val:float,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -195,7 +185,7 @@ proc setVal*(self:ref MFloatVar,val:float,runBeforeFuncs:bool = false,runAfterFu
 
 
 proc `$`*(self:MVariant):string = 
-  case self.meta.kind:
+  case self.kind:
     of "nil": return "nil"
     of "int": return $(self.MIntVar())
     of "int64":return $(self.MInt64Var())
@@ -205,8 +195,8 @@ proc `$`*(self:ref MVariant):string =
   $(self[])
      
 proc setVal*(self:ref MVariant,val:ref MVariant)=
-  assert(self.meta.kind == val.meta.kind)
-  case self.meta.kind:
+  assert(self.kind == val.kind)
+  case self.kind:
     of "nil": assert(false)
     of "int":
       self.MIntVarRef().setVal(val.MIntVarRef().val())
@@ -221,7 +211,6 @@ proc setVal*(self:ref MVariant,val:ref MVariant)=
 #***********test**************8
 
 when isMainModule:
-  import sugar
   proc t (oldVar:MVariant,newVar:MVariant):bool = 
     echo oldVar.MIntVar()
     return true
@@ -233,9 +222,8 @@ when isMainModule:
   v.setVal(newVar(10))
   echo "v.setVal(newVar(10)):",v
   echo "******* test MVariantlist ********"
-  var l = @[newVar(1,newMVariantMeta("id",Int)),newVar("nour",newMVariantMeta("name",String))]
+  var l = @[newVar(1,"id"),newVar("nour","name")]
   dump(l["id"])
   dump(l["name"])
   dump(l["****"])
-  dump(l["id"].meta)
   

@@ -1,4 +1,4 @@
-import ../mvariant,../mfilter,../mtable,strFormat,engine,dbTable
+import ../mvariant,../mfilter,../mtable,strFormat,dbTable,tables
 
 when engine.engine == "SQLITE":
   import std/db_sqlite
@@ -6,36 +6,38 @@ when engine.engine == "SQLITE":
 type
   User* = ref object of DbTable
     name,login,pass : ref MStrVar
+type   
+  UserNames* = enum 
+    userName = "name"
+    userLogin = "login"
+    userPass = "pass"
+
+#const userTableName* = "user"
+const userNameCol* = 1
+const userLoginCol* = 2
+const userPassCol* = 3
+const userNames = @[dbId,$userName,$userLogin,$userPass]
 
 proc name*():MFilter=
-  result.field_name = "name"
+  result.field_name = $userName
 
 proc login*():MFilter=
-  result.field_name = "login"
+  result.field_name = $userLogin
 
 proc pass*():MFilter=
-  result.field_name = "pass"
+  result.field_name = $userPass
 
-proc newUser():User=
-  new result
-  init(result.DbTable())
-  result.name = newVar("","name")
-  result.pass = newVar("","pass")
-  result.login = newVar("","login")
+#public for every user
+var tableMeta = newDbTableMeta(tableName = "user")
 
-proc newUser*(id:ref MInt64Var,name,login,pass:ref MStrVar):User=
+proc newUser*(id:ref MInt64Var=newVar(-1.int64,"id")
+,name:ref MStrVar=newVar("",$userName),login:ref MStrVar= newVar("",$userLogin),pass:ref MStrVar=newVar("",$userPass)):User=
   new result
   init(result.DbTable(),id)
   result.name = name
   result.pass = pass
   result.login =login
-
-proc newUser*(name,login,pass:ref MStrVar):User=
-  new result
-  init(result.DbTable())
-  result.name = name
-  result.pass = pass
-  result.login =login
+  result.tableMeta = tableMeta
 
 proc `$`*(self:User):string = 
   result = &"{self.id}\n{self.name}\n{self.login}\n{self.pass}\n"
@@ -53,14 +55,16 @@ proc getFieldsCount*(self:User):int=
   result = 4
 
 proc getFieldsNames*(self:User):seq[string]=
-  result = @["id","name","login","pass"]
+  result = userNames
+
 proc fieldsFromStrs*(self:User,strs:seq[string])=
   assert(strs.len() == self.getFieldsCount())
-  echo strs[0]
-  self.id.setVal(strs[0])
-  self.name.setVal(strs[1])
-  self.login.setVal(strs[2])
-  self.pass.setVal(strs[3])
+  echo strs[dbIdCol]
+  self.id.setVal(strs[dbIdCol])
+  self.name.setVal(strs[userNameCol])
+  self.login.setVal(strs[userLoginCol])
+  self.pass.setVal(strs[userPassCol])
+
 proc newUser*(strs:seq[string]):User=
   result = newUser()
   fieldsFromStrs(result,strs)
@@ -69,9 +73,9 @@ proc newUser*(strs:seq[string]):User=
 proc createTable*(self:User,db:DbConn,engine = "SQLITE"):bool=
   var str = ""
   if engine == "SQLITE":
-    str = "CREATE TABLE IF NOT EXISTS user(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,login TEXT,pass TEXT);"
+    str = &"CREATE TABLE IF NOT EXISTS {self.getTablename()}(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,login TEXT,pass TEXT);"
   elif engine == "MYSQL":
-    str = "CREATE TABLE IF NOT EXISTS user(id INTEGER PRIMARY KEY AUTO_INCREMENT,name TEXT,login TEXT,pass TEXT);"
+    str = &"CREATE TABLE IF NOT EXISTS {self.getTablename()}(id INTEGER PRIMARY KEY AUTO_INCREMENT,name TEXT,login TEXT,pass TEXT);"
   return db.tryExec(str.sql())
 
 proc insert*(self:User,db:DbConn):bool=
@@ -80,15 +84,13 @@ proc insert*(self:User,db:DbConn):bool=
   result = id > 0
 
 proc update*(self:User,db:DbConn):bool=
-  var str = &"UPDATE user set name = ? , login = ? , pass = ? WHERE id =?"
+  var str = &"UPDATE {self.getTablename()} set name = ? , login = ? , pass = ? WHERE id =?"
   result = db.tryExec(str.sql,self.name.val(),self.login.val(),self.pass.val(),self.id.val())
 
-proc delete*(self:User,db:DbConn):bool=
-  var str = "DELETE FROM user WHERE id=?"
-  result = db.tryExec(str.sql,self.id.val())
+
 
 proc userSelect*():MFilter=
-  result.sql = "SELECT * FROM user"
+  result.sql = &"SELECT * FROM {self.getTablename()}"
 
 proc userSelect*(filter:MFilter ):MFilter=
   if filter.sql != "":
@@ -121,7 +123,7 @@ proc all*(filter:MFilter,db:DbConn):seq[Row]=
 ##TESTS
 #----------------------------------------
 
-var user = newUser(newVar("nour","name"),newVar("abi","login"),newVar("567","pass"))
+var user = newUser(name=newVar("nour","name"),login=newVar("abi","login"),pass=newVar("567","pass"))
 let db = open("mytest.db", "", "", "")
 # echo db.tryInsertID(sql"INSERT INTO user (name,login,pass) VALUES (?,?,?);",name,login,pass)
 let v=user.createTable(db)
@@ -131,6 +133,7 @@ echo user.id
 user.name.setVal("alola")
 echo "update:",user.update(db)
 var flds = user.getFields()
+echo "delte:",user.delete(db)
 flds[1].MStrVarRef().setVal("amine")
 echo "name after change in seq:",user.name
 discard user.update(db)
