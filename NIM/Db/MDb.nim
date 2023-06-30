@@ -157,4 +157,5 @@ when isMainModule:
   echo rec
   rec.setVals(@["10","sofia"])
   echo rec
+
   #echo f,"-->",f.meta()
