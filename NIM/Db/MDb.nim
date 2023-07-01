@@ -136,7 +136,34 @@ proc setVals*(self:MRecord,vals:seq[string])=
 #***************************************
 #****************** sql ****************
 #***************************************
-
+type
+  SqlStmt* = object
+    vals:seq[MVariant]
+    stmt:string
+    fields:seq[string]
+  SelectSql* = ref object
+    tableName:string
+    fields:seq[string]
+    whereSql:SqlStmt
+    orderBySql:SqlStmt
+    limit:int
+    offset:int
+    sql:string
+proc select*(tableName:string,fields:seq[string] = @[]):SelectSql=
+  new result
+  result.tableName = tableName
+  result.fields = fields
+  var str = ""
+  if fields.len() == 0 : str = "*"
+  else:
+    for field in fields:
+      str = str & "," & field
+    str[0]=' ' # remove the first ','
+  result.sql = "SELECT" & str & "FROM " & tableName
+    
+    
+proc createTable() = 
+  discard
   
 #***************************************
 #**************** tests ****************
