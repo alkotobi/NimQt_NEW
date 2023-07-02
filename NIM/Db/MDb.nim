@@ -138,29 +138,119 @@ proc setVals*(self:MRecord,vals:seq[string])=
 #***************************************
 type
   SqlStmt* = object
-    vals:seq[MVariant]
-    stmt:string
-    fields:seq[string]
+    vals*:seq[ref MVariant]
+    stmt*:string
+    fields*:seq[string]
+
+proc `$`*(self:SqlStmt):string=
+  var str =""
+  str = "Fields:" & "\n"
+  for fld in self.fields:
+    str = str & "  " & fld & "\n"
+  str = str & "Vals:"  & "\n"
+  for v in self.vals:
+    str = str & " " & $v & "\n"
+  str = str & "Stmt:"  & "\n"
+  str = str & " " & self.stmt & "\n"
+  return str
+
+type
   SelectSql* = ref object
-    tableName:string
-    fields:seq[string]
-    whereSql:SqlStmt
-    orderBySql:SqlStmt
-    limit:int
-    offset:int
-    sql:string
+    tableName*:string
+    fields*:seq[string]
+    whereSql*:SqlStmt
+    orderBySql*:SqlStmt
+    limit*:int
+    offset*:int
+    sql*:string
+
+#******** Filter ********
+proc comp[T:int|int64|float|string](self:var SqlStmt,val:T,op:string):SqlStmt=
+  result = self
+  result.vals.add(newVar(val))
+  result.stmt = self.fields[0] & " " & op & " " & '?'
+
+proc `==`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,"=")
+
+proc `>`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,">")
+
+proc `<`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,"<")
+
+proc `>=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,">=")
+
+proc `<=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,"<=")
+
+proc `!=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,"!=")
+
+proc like*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+  return comp(self,val,"like")
+
+proc logic(sqlStmt1:SqlStmt,sqlStmt2:SqlStmt,op:string):SqlStmt=
+  result = sqlStmt1
+  result.vals.add(sqlStmt2.vals)
+  result.stmt = result.stmt & " " & op & " " & sqlStmt2.stmt
+
+proc `and`*(sqlStmt1:SqlStmt,sqlStmt2:SqlStmt):SqlStmt=
+  return logic(sqlStmt1,sqlStmt2,"AND")
+
+proc `or`*(sqlStmt1:SqlStmt,sqlStmt2:SqlStmt):SqlStmt=
+  return logic(sqlStmt1,sqlStmt2,"OR")
+
+proc `not`*(self:SqlStmt):SqlStmt=
+  result = self
+  result.stmt = "NOT (" & result.stmt & ")"
+
+#******** SelectSql ********
 proc select*(tableName:string,fields:seq[string] = @[]):SelectSql=
   new result
   result.tableName = tableName
   result.fields = fields
   var str = ""
-  if fields.len() == 0 : str = "*"
+  if fields.len() == 0 :
+    str = "*"
   else:
     for field in fields:
       str = str & "," & field
     str[0]=' ' # remove the first ','
   result.sql = "SELECT" & str & "FROM " & tableName
-    
+
+proc filter*(self:SelectSql,whereSql:SqlStmt):SelectSql=
+  self.whereSql = whereSql
+  return self
+
+proc filter*(self:SelectSql,whereSql:SqlStmt,logic:string):SelectSql=
+  assert(self.whereSql.stmt != "")
+  assert(whereSql.stmt != "")
+  self.whereSql.vals.add(whereSql.vals)
+  self.whereSql.stmt = "(" & self.whereSql.stmt & ")" & logic & "(" & whereSql.stmt & ")"
+  return self
+
+proc andFilter*(self:SelectSql,whereSql:SqlStmt):SelectSql=
+  return filter(self,whereSql," AND ")
+  
+proc orFilter*(self:SelectSql,whereSql:SqlStmt):SelectSql=
+  return filter(self,whereSql," OR ")
+
+proc notFilter*(self:SelectSql):SelectSql=
+  self.whereSql = not self.whereSql
+  return self
+
+proc sort*(self:SelectSql,orderBySql:SqlStmt):SelectSql=
+  self.orderBySql = orderBySql
+  return self
+
+proc limit*(self:SelectSql,limit,offset:int):SelectSql=
+  self.limit = limit
+  self.offset = offset
+  return self
+
+
     
 proc createTable() = 
   discard
