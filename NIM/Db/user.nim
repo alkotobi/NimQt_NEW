@@ -90,7 +90,7 @@ proc update*(self:User,db:DbConn):bool=
 
 
 proc userSelect*():MFilter=
-  result.sql = &"SELECT * FROM {self.getTablename()}"
+  result.sql = "SELECT * FROM user"
 
 proc userSelect*(filter:MFilter ):MFilter=
   if filter.sql != "":
@@ -134,6 +134,7 @@ user.name.setVal("alola")
 echo "update:",user.update(db)
 var flds = user.getFields()
 echo "delte:",user.delete(db)
+echo "insert:",user.insert(db)
 flds[1].MStrVarRef().setVal("amine")
 echo "name after change in seq:",user.name
 discard user.update(db)

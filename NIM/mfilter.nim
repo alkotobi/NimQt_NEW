@@ -17,7 +17,7 @@ proc `$`*(self:MFilter):string=
 
 proc `==`*(filter1: MFilter,val:ref MVariant):MFilter=
   result = filter1
-  result.sql = &"{filter1.sql}{val.name} = ?" 
+  result.sql = &"{filter1.sql}{val.meta.name} = ?" 
   result.vals.add(val)
 
 proc `==`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
@@ -29,7 +29,7 @@ proc `==`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
 
 proc `>`*(filter1: MFilter,val:ref MVariant):MFilter=
   result = filter1
-  result.sql = &"{filter1.sql}{val.name} > ?"
+  result.sql = &"{filter1.sql}{val.name()} > ?"
   result.vals.add val
 
 proc `>`*[T:int|int64|string|float](filter1:MFilter,val:T):MFilter=
@@ -90,7 +90,7 @@ proc `or`*(filter1: MFilter,filter2:MFilter):MFilter=
 
 when isMainModule:
   var v1 = Var(-10,"mimi")
-  var v2 = Var("10","nono")
+  var v2 = Var(val="10",name="nono")
   var v3 = Var(-10.int64(),"big")
   #v.init(5,"ana")
   echo "v1:",v1

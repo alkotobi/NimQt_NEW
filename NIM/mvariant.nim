@@ -26,6 +26,15 @@ proc init*(self:MVariantMeta,name="",kind=Nil)=
 proc newMVariantMeta*(name="",kind=Nil):MVariantMeta=
   new result
   result.init(name,kind)
+proc kind*(self:MVariant|ref MVariant):string=
+  return self.meta.kind
+
+proc init(self:var MVariant,name="",meta=newMVariantMeta())=
+  self.meta = meta
+  if name != "":self.meta.name = name
+
+proc name*(self:MVariant|ref MVariant):string=
+  return self.meta.name
 
 
 proc execBforeSetValFuncs(self:MVariant|ref MVariant,newVal:MVariant):bool=
@@ -67,21 +76,27 @@ proc `[]`*(varList:MVariantList,name:string):ref MVariant=
       return v
   return newVar()
 
+proc getNames*(fields:MVariantList):string=
+  assert(fields.len()!=0)
+  result = fields[0]
+  for i in 1..fields.len()-1:
+    result = result & "," & fields[i].name()
+
 type
   MIntVar* = object of MVariant
     intVal :int
   MIntVarRef* = ref MIntVar
 proc val*(self: MIntVar|ref MIntVar):int =
   result = self.intVal
-proc init*(self:var MIntVar,val:int,meta = newMVariantMeta(kind=Int))=
-  self.meta = meta
+proc init*(self:var MIntVar,val:int,name="",meta = newMVariantMeta(kind=Int))=
+  self.MVariant().init(name,meta)
   self.intVal = val
-proc newVar*(val:int,meta = newMVariantMeta(kind=Int)):ref MIntVar=
+proc newVar*(val:int,name="",meta = newMVariantMeta(kind=Int)):ref MIntVar=
   new result
-  init(result[],val,meta)
+  init(result[],val,name,meta)
 
-proc Var*(val:int,meta = newMVariantMeta(kind=Int)):MIntVar=
-  result.init(val,meta)
+proc Var*(val:int,name="",meta = newMVariantMeta(kind=Int)):MIntVar=
+  result.init(val,name,meta)
 
 proc `$`*(self:MIntVar|ref MIntVar):string=
   result = `$`(self.intVal)
@@ -107,14 +122,15 @@ type
   MInt64VarRef* = ref MIntVar
 proc val*(self: MInt64Var|ref MInt64Var):int64 =
   result = self.int64Val
-proc init*(self:var MInt64Var,val:int64,meta = newMVariantMeta(kind=Int64))=
-  self.meta = meta
+proc init*(self:var MInt64Var,val:int64,name="",meta = newMVariantMeta(kind=Int64))=
+  self.MVariant().init(name,meta) 
   self.int64Val = val
-proc newVar*(val:int64,meta = newMVariantMeta(kind=Int64)):ref MInt64Var=
+
+proc newVar*(val:int64,name="",meta = newMVariantMeta(kind=Int64)):ref MInt64Var=
   new result
-  result[].init(val,meta)
-proc Var*(val:int64,meta = newMVariantMeta(kind=Int64)):MInt64Var=
-  result.init(val,meta)
+  result[].init(val,name,meta)
+proc Var*(val:int64,name="",meta = newMVariantMeta(kind=Int64)):MInt64Var=
+  result.init(val,name,meta)
 proc `$`*(self:MInt64Var|ref MInt64Var):string=
   result = `$`(self.int64Val)
 proc setVal*(self:var MInt64Var,val:int64,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -139,14 +155,16 @@ type
   MStrVarRef* = ref MStrVar
 proc val*(self: MStrVar|ref MStrVar):string =
   result = self.strVal
-proc init*(self:var MStrVar,val:string,meta = newMVariantMeta(kind=String))=
-  self.meta = meta
+proc init*(self:var MStrVar,val:string,name="",meta = newMVariantMeta(kind=String))=
+  self.MVariant().init(name,meta)
   self.strVal = val
-proc newVar*(val:string,meta = newMVariantMeta(kind=String)):ref MStrVar=
+
+proc newVar*(val:string,name="",meta = newMVariantMeta(kind=String)):ref MStrVar=
   new result
-  result[].init(val,meta)
-proc Var*(val:string,meta = newMVariantMeta(kind=Int64)):MStrVar=
-  result.init(val,meta)
+  result[].init(val,name,meta)
+proc Var*(val:string,name="",meta = newMVariantMeta(kind=Int64)):MStrVar=
+  result.init(val,name,meta)
+
 proc `$`*(self:MStrVar|ref MStrVar):string=
   result = self.strVal
 proc setVal*(self:var MStrVar,val:string,runBeforeFuncs:bool = false,runAfterFuncs=false)=
@@ -167,16 +185,20 @@ type
   MFloatVarRef* = ref MFloatVar
 proc val*(self: MFloatVar|ref MFloatVar):float =
   result = self.floatVal
-proc init*(self:var MFloatVar,val:float,meta = newMVariantMeta(kind=Float))=
-  self.meta = meta
+proc init*(self:var MFloatVar,val:float,name="",meta = newMVariantMeta(kind=Float))=
+  self.MVariant().init(name,meta)
   self.floatVal = val
-proc newVar*(val:float,meta = newMVariantMeta(kind=Float)):ref MfloatVar=
+
+proc newVar*(val:float,name="",meta = newMVariantMeta(kind=Float)):ref MfloatVar=
   new result
-  result[].init(val,meta)
-proc Var*(val:float,meta = newMVariantMeta(kind=Int64)):MFloatVar=
-  result.init(val,meta)
+  result[].init(val,name,meta)
+
+proc Var*(val:float,name="",meta = newMVariantMeta(kind=Int64)):MFloatVar=
+  result.init(val,name,meta)
+
 proc `$`*(self:MFloatVar|ref MFloatVar):string=
   result = $self.floatVal
+
 proc setVal*(self:var MFloatVar,val:float,runBeforeFuncs:bool = false,runAfterFuncs=false)=
   if  self.floatVal == val : return
   var accept  =true
@@ -233,7 +255,7 @@ when isMainModule:
   v.setVal(newVar(10))
   echo "v.setVal(newVar(10)):",v
   echo "******* test MVariantlist ********"
-  var l = @[newVar(1,newMVariantMeta("id",Int)),newVar("nour",newMVariantMeta("name",String))]
+  var l = @[newVar(1,meta=newMVariantMeta("id",Int)),newVar("nour")]
   dump(l["id"])
   dump(l["name"])
   dump(l["****"])

@@ -131,7 +131,27 @@ proc setVals*(self:MRecord,vals:seq[string])=
   for i in 0 .. vals.len()-1:
     self.fields[i].setVal(vals[i])
 
-  
+#***************************************
+#****************** db ****************
+#***************************************
+const engine = "SQLITE"
+when engine == "SQLITE":
+  import std/db_sqlite
+else:
+  import std/db_mysql  
+
+proc bindParam(self:SqlPrepared,val:ref MVariant,col:int)=
+  case val.kind:
+      of "int":
+        selectStmt.bindParam(col,val.MIntVarRef().val())
+      of "int64":
+        selectStmt.bindParam(col,val.MInt64VarRef().val())
+      of "string":
+        selectStmt.bindParam(col,val.MStrVarRef().val())
+      of "float":
+        selectStmt.bindParam(col,val.MFloatVarRef().val())
+      of "nil":
+        selectStmt.bindNull(col)
 
 #***************************************
 #****************** sql ****************
@@ -160,6 +180,9 @@ type
     fields*:seq[string]
     whereSql*:SqlStmt
     orderBySql*:SqlStmt
+    updateSQl*:SqlStmt
+    inserSQl*:SqlStmt
+    deleteSql*:SqlStmt
     limit*:int
     offset*:int
     sql*:string
@@ -215,9 +238,7 @@ proc select*(tableName:string,fields:seq[string] = @[]):SelectSql=
   if fields.len() == 0 :
     str = "*"
   else:
-    for field in fields:
-      str = str & "," & field
-    str[0]=' ' # remove the first ','
+    str = fields.join(",")
   result.sql = "SELECT" & str & "FROM " & tableName
 
 proc filter*(self:SelectSql,whereSql:SqlStmt):SelectSql=
@@ -242,13 +263,84 @@ proc notFilter*(self:SelectSql):SelectSql=
   return self
 
 proc sort*(self:SelectSql,orderBySql:SqlStmt):SelectSql=
-  self.orderBySql = orderBySql
+  # vals: 1 asc , 0 desc , every field from fields has asc or desc from vals
+  self.orderBySql.fields.add(orderBySql.fields)
+  self.orderBySql.vals.add(orderBySql.vals)
+  var str =""
+  for i in 0..self.orderBySql.fields.len()-1:
+    str = str & "," & self.orderBySql.fields[i]
+    if self.orderBySql.vals[i].val != 1:
+      str = str & " DESC"
+  str[0]=" "
+  self.orderBySql.stmt = str
+  return self
+
+proc sort*(self:SelectSql,fieldName:string,asc:bool=true):SelectSql=
+  # vals: 1 asc , 0 desc , every field from fields has asc or desc from vals
+  self.orderBySql.fields.add(fieldName)
+  if asc:
+    self.orderBySql.vals.add(newVar(1))
+  else:
+    self.orderBySql.vals.add(newVar(0))
   return self
 
 proc limit*(self:SelectSql,limit,offset:int):SelectSql=
   self.limit = limit
   self.offset = offset
   return self
+
+proc getSelectSql*(self:SelectSql):string=
+  var whereSql =""
+  var orderBySql =""
+  var limitSql = ""
+  if self.whereSql.stmt != ""
+     self.sql = self.sql & " WHERE " & self.whereSql.stmt
+  if self.orderBySql.stmt != "" :
+    self.sql = self.sql & " ORDERBY " & self.orderBySql.stmt
+  if self.limit != 0:
+    self.sql = self.sql & " LIMIT " & $self.limit
+    if self.offset != 0:
+      self.sql = self.sql & " OFFSET " & &self.offset
+  return self.sql
+
+proc all*(self:SelectSql,db:DbConn):seq[Row]=
+  var sql = self.getSelectSql()
+  var vals = self.whereSql.vals
+  if self.whereSql.vals.len()==0:
+    return db.getAllRows(sql)
+  var selectStmt = db.prepare(sql)
+  var i = 0;
+  for v in  vals:
+    i += 1
+    selectStmt.bindParam(v,i)
+  result = getAllRows(db,selectStmt)
+
+proc getInsertSql(self:SelectSql):string=
+  assert(self.inserSQl.fields.len()!=0)
+  var str ="?"
+  for i in 1..self.inserSQl.fields.len()-1:
+    str = str & "," & "?"
+  result =  "INSERT INTO " & self.tableName & " (" & fields.getNames() & ") VALUES (" & str & ");"
+
+proc insert*(self:SelectSql,vals:seq[ref MVariant]):SelectSql=
+  self.inserSQl.vals = vals
+  return self
+
+proc execInsert(self:SelectSql,db:DbConn):bool=
+  var sql = self.getInsertSql()
+  var insterStmt = db.prepare(sql)
+  var i = 0;
+  for v in  self.inserSQl.vals:
+    i += 1
+    insterStmt.bindParam(v,i)
+  return db.tryExec(insterStmt)
+  
+
+  
+
+
+    
+  
 
 
     
