@@ -69,16 +69,16 @@ proc Var*():MNilVar=
 proc isNil*(self:MVariant|ref MVariant):bool =
   return self.meta.kind ==  Nil
 
-type MVariantList* = seq[ref MVariant]
-proc `[]`*(varList:MVariantList,name:string):ref MVariant=
+type MVariantRefList* = seq[ref MVariant]
+proc `[]`*(varList:MVariantRefList,name:string):ref MVariant=
   for v in varList:
     if v.meta.name == name :
       return v
   return newVar()
 
-proc getNames*(fields:MVariantList):string=
+proc getNames*(fields:MVariantRefList):string=
   assert(fields.len()!=0)
-  result = fields[0]
+  result = fields[0].name()
   for i in 1..fields.len()-1:
     result = result & "," & fields[i].name()
 
@@ -239,8 +239,33 @@ proc setVal*(self:ref MVariant,val:ref MVariant)=
     of "float":
       self.MFloatVarRef().setVal(val.MFloatVarRef().val())
     else: assert(false)
- 
-#***********test**************8
+
+#***********general api*******
+proc toInt*(self:MVariant|ref MVariant):int=
+  assert(self.kind == Int)
+  when self is MVariant:
+    return self.MIntVar().val
+  else:
+    return self.MIntVarRef().val
+proc toInt64*(self:MVariant|ref MVariant):int64=
+  assert(self.kind == Int64)
+  when self is MVariant:
+    return self.MInt64Var().val
+  else:
+    return self.MInt64VarRef().val
+proc toStr*(self:MVariant|ref MVariant):string=
+  assert(self.kind == String)
+  when self is MVariant:
+    return self.MStrVar().val
+  else:
+    return self.MStrVarRef().val
+proc toFloat*(self:MVariant|ref MVariant):float=
+  assert(self.kind == Float)
+  when self is MVariant:
+    return self.MFloatVar().val
+  else:
+    return self.MFloatVarRef().val
+#***********test**************
 
 when isMainModule:
   import sugar
