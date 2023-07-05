@@ -17,6 +17,11 @@ type
 
   MVariant* = object of RootObj
     meta*:MVariantMeta
+proc `$`*(self:MFNBeforSetVal):string=
+  result = "funcBeforeSetVal"
+
+proc `$`*(self:MFNAfterSetVal):string=
+  result = "funcAfterSetVal"
 
 proc `$`*(self:MVariantMeta):string=
   result = self.name & ":" & self.kind & "\n"
@@ -119,7 +124,7 @@ proc setVal*(self:ref MIntVar,val:int,runBeforeFuncs:bool = false,runAfterFuncs=
 type
   MInt64Var* = object of MVariant
     int64Val :int64
-  MInt64VarRef* = ref MIntVar
+  MInt64VarRef* = ref MInt64Var
 proc val*(self: MInt64Var|ref MInt64Var):int64 =
   result = self.int64Val
 proc init*(self:var MInt64Var,val:int64,name="",meta = newMVariantMeta(kind=Int64))=
@@ -144,9 +149,9 @@ proc setVal*(self:var MInt64Var,val:int64,runBeforeFuncs:bool = false,runAfterFu
     self.execAfterSetValFuncs()
 proc setVal*(self:var MInt64Var,val:string,runBeforeFuncs:bool = false,runAfterFuncs=false)=
   self.setVal(val.parseBiggestInt(),runBeforeFuncs,runAfterFuncs)
-proc setVal*(self:ref MInt64Var,val:string,runBeforeFuncs:bool = false,runAfterFuncs=false)=
+proc setVal*(self: MInt64VarRef,val:string,runBeforeFuncs:bool = false,runAfterFuncs=false)=
   setVal(self[],val,runBeforeFuncs,runAfterFuncs)
-proc setVal*(self:ref MInt64Var,val:int64,runBeforeFuncs:bool = false,runAfterFuncs=false)=
+proc setVal*(self: MInt64VarRef,val:int64,runBeforeFuncs:bool = false,runAfterFuncs=false)=
   setVal(self[],val,runBeforeFuncs,runAfterFuncs)
 
 type

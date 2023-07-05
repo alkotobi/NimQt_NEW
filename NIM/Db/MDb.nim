@@ -12,7 +12,23 @@ type
     isUnic:bool
     isCanNotEmpty:bool
 
-  MFieldMetaList* = seq[MFieldMeta]
+  MMetaList* = seq[MFieldMeta]
+proc `$`*(self:MFieldMeta):string=
+  var l:seq[string]
+  for fieldName, fieldValue in self[].fieldPairs:
+    when fieldValue is string:
+      l.add(fieldName & ":'" & fieldValue & "'")
+    else: l.add(fieldName & ":" & $(fieldValue))
+  result = l.join(";")
+
+proc newMeta*(name:string,kind:string,isPrimary = false,isAutoInc = false,isUnic=false,isCanNotEmpty = false):MFieldMeta=
+  new result
+  result.MVariantMeta().init(name,kind)
+  result.isAutoInc = isAutoInc
+  result.isCanNotEmpty = isCanNotEmpty
+  result.isCanNotEmpty = isCanNotEmpty
+  result.isUnic = isUnic
+
 proc newMfieldMeta*(name:string="",kind =Nil,caption=name):MFieldMeta=
   new result
   result.MVariantMeta().init(name,kind)
@@ -24,12 +40,12 @@ proc newIdMeta*():MFieldMeta=
   result.isAutoInc = true
   result.isPrimary = true
 
-proc getNames*(self:MFieldMetaList):string=
+proc getNames*(self:MMetaList):string=
   assert(self.len()>0)
   result = self[0].name
   for i in 1..self.len()-1:
     result = result & "," & self[i].name
-proc getNamesList*(self:MFieldMetaList):seq[string]=
+proc getNamesList*(self:MMetaList):seq[string]=
   for meta in self:
     result.add(meta.name)
 #***************************************
@@ -110,8 +126,9 @@ proc setVal*[T:int|int64|string|float](self:MField,val:T,runBefor=false,runAfter
     elif self.kind() == Float:
       self.toMFloatVar().setVal(val,runBefor,runAfter)
   when T is int:
-    assert(self.kind() == Int)
-    self.toMIntVar().setVal(val,runBefor,runAfter)
+    assert(self.kind() == Int or self.kind() == Int64)
+    if self.kind == Int:
+      self.toMIntVar().setVal(val,runBefor,runAfter)
   when T is int64:
     assert(self.kind() == Int64)
     self.toMInt64Var().setVal(val,runBefor,runAfter) 
@@ -166,9 +183,10 @@ proc `$`*(self:MRecord):string=
     str = str & strWithin($field.toMVariant(),10) & "|"
   echo str
 proc setVals*(self:MRecord,vals:seq[string])=
-  assert(self.len() == vals.len())
-  for i in 0 .. vals.len()-1:
-    self.fields[i].setVal(vals[i])
+  assert(self.len() == vals.len()+1)
+  #we excluse the ID from being assigned
+  for i in 1 .. vals.len()-1:
+    self.fields[i].setVal(vals[i-1])
 
 #***************************************
 #****************** db ****************
@@ -248,7 +266,7 @@ proc createTableFieldsSql(metas:seq[MFieldMeta],engine="SQLITE"):seq[string]=
       of Float: kind = "REAL"
       else:assert(false)
     str = "`" & meta.name & "` " & kind
-    if meta.isPrimary: str = str & " PRIMARY"
+    if meta.isPrimary: str = str & " PRIMARY KEY"
     if meta.isAutoInc:
       if engine == "SQLITE":
         str = str & " AUTOINCREMENT"
@@ -263,10 +281,11 @@ proc createTableSql(tableName:string,metas:seq[MFieldMeta],engine = "SQLITE"):st
 proc newSqlTable*(tableName:string,metas:seq[MFieldMeta],engine = "SQLITE"):SqlTable=
   new result
   result.engine = engine
-  result.meta = metas
+  result.meta.add(newIdMeta())
+  result.meta.add(metas)
   result.tableName = tableName
   var names = metas.getNames()
-  result.createTableSql = createTableSql(tableName,metas,engine)
+  result.createTableSql = createTableSql(tableName,result.meta,engine)
   result.selectSql.names = metas.getNamesList()
   result.selectSql.stmt = "SELECT " & names & " FROM " & tableName
   var str ="?"
@@ -276,30 +295,30 @@ proc newSqlTable*(tableName:string,metas:seq[MFieldMeta],engine = "SQLITE"):SqlT
 #******** General Api ********
 
 #******** Filter ********
-proc comp[T:int|int64|float|string](self:var SqlStmt,val:T,op:string):SqlStmt=
+proc comp[T:int|int64|float|string](self:SqlStmt,val:T,op:string):SqlStmt=
   result = self
   result.vals.add(newVar(val))
   result.stmt = self.names[0] & " " & op & " " & '?'
 
-proc `==`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `==`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,"=")
 
-proc `>`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `>`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,">")
 
-proc `<`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `<`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,"<")
 
-proc `>=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `>=`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,">=")
 
-proc `<=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `<=`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,"<=")
 
-proc `!=`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc `!=`*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,"!=")
 
-proc like*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
+proc like*[T:int|int64|float|string](self:SqlStmt,val:T):SqlStmt=
   return comp(self,val,"like")
 
 proc logic(sqlStmt1:SqlStmt,sqlStmt2:SqlStmt,op:string):SqlStmt=
@@ -318,6 +337,10 @@ proc `not`*(self:SqlStmt):SqlStmt=
   result.stmt = "NOT (" & result.stmt & ")"
 
 #******** SqlTable ********
+proc fields*(flds:varargs[string]):SqlStmt=
+  for arg in flds:
+    result.names.add(arg)
+
 proc select*(self:SqlTable,names:seq[string] = @[]):SqlTable=
   result = self
   result.sqlKind = SqlSelect
@@ -327,15 +350,18 @@ proc select*(self:SqlTable,names:seq[string] = @[]):SqlTable=
     str = "*"
   else:
     str = names.join(",")
-  result.selectSql.stmt = "SELECT" & str & "FROM " & result.tableName
+  result.selectSql.stmt = "SELECT " & str & " FROM " & result.tableName
 
+proc select*(self:SqlTable,names =SqlStmt()):SqlTable=
+  return select(self,names.names)
 proc filter*(self:SqlTable,whereSql:SqlStmt):SqlTable=
   if self.sqlKind == SqlSelect:
     self.whereSql = whereSql
   else:
     self.whereSqlTmp = whereSql
   return self
-
+proc field*(fieldName:string):SqlStmt=
+  result.names.add(fieldName)
 proc filter*(self:SqlTable,whereSql:SqlStmt,logic:string):SqlTable=
   assert(whereSql.stmt != "")
   if self.sqlKind == SqlSelect:
@@ -480,17 +506,47 @@ when isMainModule:
 #**************** tests ****************
 #***************************************
 when isMainModule:
-  #import sugar
-  echo "Test"
-  var mint = newMfieldMeta("id",Int)
+  import sugar
+  echo """***************************************
+**************** tests ****************
+***************************************"""
+  echo """
+**********
+MFieldmeta
+**********
+"""
+  var metaList:MMetaList
+  metaList.add(@[newMeta(name="age",kind=Int)
+,newMeta(name="name",kind=String)])
+  dump metaList
+  echo """
+********
+SqlTable
+********
+"""
+  var table = newSqlTable("user",metaList)
+  var ff = field("age")
+  dump table.filter(field("age") > 15 and field("name") == "marwa").whereSql
+  dump table.createTableSql
+  dump table.inserSQl.stmt
+  dump table.selectSql.stmt
+  dump table.select(fields("name","age")).filter(field("ID") == 1).getSelectSql()
+  echo """
+************
+END SqlTable
+************
+"""  
+  var b:bool 
+  echo "b:", b 
+  var mint = newIdMeta()
   var mstr = newMfieldMeta("name",String)
-  var f = newMfield(1,mint)
+  var f = newMfield(1.int64,mint)
   f.setVal(10)
   echo f,"-->",f.meta()
   f.setVal("15")
   echo f,"-->",f.meta()
   var rec = newMrecord()
-  rec.add(newMfield(1,mint))
+  rec.add(newMfield(1.int64,mint))
   rec.add(newMfield("nour",mstr))
   echo rec
   rec.setVals(@["10","sofia"])
