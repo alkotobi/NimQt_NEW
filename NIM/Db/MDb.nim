@@ -1,4 +1,4 @@
-import ../mvariant,../mlibrary,std/strutils
+import ../mvariant,../mlibrary
 
 #***************************************
 #************** MFieldmeta *************
@@ -17,11 +17,21 @@ proc newMfieldMeta*(name:string="",kind =Nil,caption=name):MFieldMeta=
   new result
   result.MVariantMeta().init(name,kind)
   result.caption = caption
+proc newIdMeta*():MFieldMeta=
+  new result
+  result.kind = Int64
+  result.name = "ID"
+  result.isAutoInc = true
+  result.isPrimary = true
+
 proc getNames*(self:MFieldMetaList):string=
   assert(self.len()>0)
   result = self[0].name
   for i in 1..self.len()-1:
     result = result & "," & self[i].name
+proc getNamesList*(self:MFieldMetaList):seq[string]=
+  for meta in self:
+    result.add(meta.name)
 #***************************************
 #**************** MField ***************
 #***************************************    
@@ -37,6 +47,25 @@ proc newMfield*[T:int|int64|string|float](val:T,meta:MFieldMeta):MField=
   when T is float: assert(meta.kind == Float)
   new result
   result.value = newVar(val,meta=meta)
+proc newMfield*(meta:MFieldMeta):MField=
+  case meta.kind:
+    of Int:
+      return newMfield(0,meta = meta)
+    of Int64:
+      if meta.isAutoInc:
+        return newMfield(-1.int64,meta=meta)
+      else:
+        return newMfield(0.int64,meta = meta)
+    of Float:
+      return newMfield(0.float,meta=meta)
+    of String:
+      return newMfield("",meta = meta)
+    else:
+      assert(false)
+
+proc newIDField*():MField=
+  new result
+  result.value = newVar(-1.int64,meta=newIdMeta())
 
 proc meta*(self:MField):MFieldMeta=
   return self.value.meta.MFieldMeta()
@@ -98,13 +127,12 @@ type
     fields: seq[MField]
 proc newMrecord*():MRecord=
   new result
-  result.fields = newSeq[MField]()
+  result.fields.add(newIDField())
+
 proc newMrecord*(metas:seq[MFieldMeta]):MRecord=
   result = newMrecord()
   for meta in metas:
-    case meta.kind:
-      of Int:
-        result.fields.add(newMfield(0,meta))
+    result.fields.add(newMfield(meta))
 
 proc add*(self:MRecord,field:MField)=
   self.fields.add(field)
@@ -199,6 +227,7 @@ type
     meta*:seq[MFieldMeta]
     selectSql*:SqlStmt
     whereSql*:SqlStmt
+    whereSqlTmp:SqlStmt
     orderBySql*:SqlStmt
     updateSQl*:SqlStmt
     inserSQl*:SqlStmt
@@ -206,7 +235,7 @@ type
     createTableSql*:string
     limit*:int
     offset*:int
-    sql*:string
+    engine:string
 
 proc createTableFieldsSql(metas:seq[MFieldMeta],engine="SQLITE"):seq[string]=
   var kind = ""
@@ -223,17 +252,27 @@ proc createTableFieldsSql(metas:seq[MFieldMeta],engine="SQLITE"):seq[string]=
     if meta.isAutoInc:
       if engine == "SQLITE":
         str = str & " AUTOINCREMENT"
-      elif engien == "MYSQL":
+      elif engine == "MYSQL":
         str = str & " AUTO_INCREMENT"
     elif meta.isUnic: str = str & " UNIQUE"
     elif meta.isCanNotEmpty: str = str & " NOT NULL"
     result.add(str)
-    
+proc createTableSql(tableName:string,metas:seq[MFieldMeta],engine = "SQLITE"):string=
+  result = "CREATE TABLE IF NOT EXISTS `" & tableName & "`(" & createTableFieldsSql(metas,engine).join(",") & ")"
+
 proc newSqlTable*(tableName:string,metas:seq[MFieldMeta],engine = "SQLITE"):SqlTable=
   new result
+  result.engine = engine
   result.meta = metas
   result.tableName = tableName
-  result.createTableSql = "CREATE TABLE IF NOT EXISTS `" & tableName & "`(" & createTableFieldsSql(metas,engine).join(",") & ")"
+  var names = metas.getNames()
+  result.createTableSql = createTableSql(tableName,metas,engine)
+  result.selectSql.names = metas.getNamesList()
+  result.selectSql.stmt = "SELECT " & names & " FROM " & tableName
+  var str ="?"
+  for i in 1..metas.len()-1:
+    str = str & "," & "?"
+  result.inserSQl.stmt =  "INSERT INTO " & tableName & " (" & names & ") VALUES (" & str & ");"
 #******** General Api ********
 
 #******** Filter ********
@@ -281,23 +320,33 @@ proc `not`*(self:SqlStmt):SqlStmt=
 #******** SqlTable ********
 proc select*(self:SqlTable,names:seq[string] = @[]):SqlTable=
   result = self
+  result.sqlKind = SqlSelect
   result.selectSql.names = names
   var str = ""
   if names.len() == 0 :
     str = "*"
   else:
-    str = names.toOpenArray(0,names.len()-1).join(",")
+    str = names.join(",")
   result.selectSql.stmt = "SELECT" & str & "FROM " & result.tableName
 
 proc filter*(self:SqlTable,whereSql:SqlStmt):SqlTable=
-  self.whereSql = whereSql
+  if self.sqlKind == SqlSelect:
+    self.whereSql = whereSql
+  else:
+    self.whereSqlTmp = whereSql
   return self
 
 proc filter*(self:SqlTable,whereSql:SqlStmt,logic:string):SqlTable=
-  assert(self.whereSql.stmt != "")
   assert(whereSql.stmt != "")
-  self.whereSql.vals.add(whereSql.vals)
-  self.whereSql.stmt = "(" & self.whereSql.stmt & ")" & logic & "(" & whereSql.stmt & ")"
+  if self.sqlKind == SqlSelect:
+    assert(self.whereSql.stmt != "")
+    self.whereSql.vals.add(whereSql.vals)
+    self.whereSql.stmt = "(" & self.whereSql.stmt & ")" & logic & "(" & whereSql.stmt & ")"
+  else:
+    assert(self.whereSqlTmp.stmt != "")
+    self.whereSqlTmp.vals.add(whereSql.vals)
+    self.whereSqlTmp.stmt = "(" & self.whereSqlTmp.stmt & ")" & logic & "(" & whereSql.stmt & ")"
+    
   return self
 
 proc andFilter*(self:SqlTable,whereSql:SqlStmt):SqlTable=
@@ -307,7 +356,12 @@ proc orFilter*(self:SqlTable,whereSql:SqlStmt):SqlTable=
   return filter(self,whereSql," OR ")
 
 proc notFilter*(self:SqlTable):SqlTable=
-  self.whereSql = not self.whereSql
+  if self.sqlKind == SqlSelect:
+    assert(self.whereSql.stmt != "")
+    self.whereSql = not self.whereSql
+  else:
+    assert(self.whereSqlTmp.stmt != "")
+    self.whereSqlTmp = not self.whereSqlTmp
   return self
 
 proc sort*(self:SqlTable,orderBySql:SqlStmt):SqlTable=
@@ -340,14 +394,14 @@ proc limit*(self:SqlTable,limit,offset:int):SqlTable=
 
 proc getSelectSql*(self:SqlTable):string=
   if self.whereSql.stmt != "":
-     self.sql = self.sql & " WHERE " & self.whereSql.stmt
+     self.selectSql.stmt = self.selectSql.stmt & " WHERE " & self.whereSql.stmt
   if self.orderBySql.stmt != "" :
-    self.sql = self.sql & " ORDERBY " & self.orderBySql.stmt
+    self.selectSql.stmt = self.selectSql.stmt & " ORDERBY " & self.orderBySql.stmt
   if self.limit != 0:
-    self.sql = self.sql & " LIMIT " & $self.limit
+    self.selectSql.stmt = self.selectSql.stmt & " LIMIT " & $self.limit
     if self.offset != 0:
-      self.sql = self.sql & " OFFSET " & $self.offset
-  return self.sql
+      self.selectSql.stmt = self.selectSql.stmt & " OFFSET " & $self.offset
+  return self.selectSql.stmt
 
 proc all*(self:SqlTable,db:DbConn):seq[Row]=
   var sql = self.getSelectSql()
@@ -369,21 +423,44 @@ proc getInsertSql(self:SqlTable):string=
   result =  "INSERT INTO " & self.tableName & " (" & self.inserSQl.vals.getNames() & ") VALUES (" & str & ");"
 
 proc insert*(self:SqlTable,vals:seq[ref MVariant]):SqlTable=
+  self.sqlKind = SqlInsert
   self.inserSQl.vals = vals
   self.inserSQl.stmt = self.getInsertSql()
   return self
 
-proc execInsert*(self:SqlTable,db:DbConn):bool=
-  var sql = self.getInsertSql()
-  var insterStmt = db.prepare(sql)
-  var i = 0;
-  for v in  self.inserSQl.vals:
-    i += 1
-    insterStmt.bindParam(v,i)
-  return db.tryExec(insterStmt)
+proc delete*(self:SqlTable):SqlTable=
+  self.sqlKind = SqlDelete
+  self.whereSqlTmp.names.setLen(0)
+  self.whereSqlTmp.stmt = ""
+  self.whereSqlTmp.vals.setLen(0)
+  return self
 
-proc createTable*(self:seq[MFieldMeta]):SqlTable=
-  echo "ok"
+proc exec*(self:SqlTable,db:DbConn):bool=
+  if self.sqlKind == SqlInsert:
+    var sql = self.getInsertSql()
+    var insterStmt = db.prepare(sql)
+    var i = 0;
+    for v in  self.inserSQl.vals:
+      i += 1
+      insterStmt.bindParam(v,i)
+    return db.tryExec(insterStmt)
+  elif self.sqlKind == SqlDelete:
+    var sql = "DELETE from " & self.tableName
+    var vals = self.whereSqlTmp.vals
+    if self.whereSqlTmp.vals.len()==0:
+      return db.tryExec(sql(sql))
+    var selectStmt = db.prepare(sql)
+    var i = 0;
+    for v in  vals:
+      i += 1
+      selectStmt.bindParam(v,i)
+    return db.tryExec(selectStmt)
+  elif self.sqlKind == SqlUpdate:
+    discard
+ 
+
+proc createTable*(self:SqlTable,db:DbConn):bool=
+  return db.tryExec(sql(self.createTableSql))
 
 
 
