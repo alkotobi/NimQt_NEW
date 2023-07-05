@@ -248,7 +248,6 @@ proc `==`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
 proc `>`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
   return comp(self,val,">")
 
-
 proc `<`*[T:int|int64|float|string](self:var SqlStmt,val:T):SqlStmt=
   return comp(self,val,"<")
 
