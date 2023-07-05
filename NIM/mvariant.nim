@@ -34,7 +34,7 @@ proc newMVariantMeta*(name="",kind=Nil):MVariantMeta=
 proc kind*(self:MVariant|ref MVariant):string=
   return self.meta.kind
 
-proc init(self:var MVariant,name="",meta=newMVariantMeta())=
+proc init*(self:var MVariant,name="",meta=newMVariantMeta())=
   self.meta = meta
   if name != "":self.meta.name = name
 

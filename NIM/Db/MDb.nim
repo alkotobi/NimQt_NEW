@@ -63,6 +63,12 @@ proc newMfield*[T:int|int64|string|float](val:T,meta:MFieldMeta):MField=
   when T is float: assert(meta.kind == Float)
   new result
   result.value = newVar(val,meta=meta)
+
+proc newMfield*(val:ref MVariant):MField=
+  new result
+  result.value = val
+
+  
 proc newMfield*(meta:MFieldMeta):MField=
   case meta.kind:
     of Int:
@@ -145,6 +151,35 @@ type
 proc newMrecord*():MRecord=
   new result
   result.fields.add(newIDField())
+
+proc add*(self:MRecord,fld:MField)=
+  self.fields.add(fld)
+
+proc fieldByName*(self:MRecord,name:string):MField=
+  for fld in self.fields:
+    if fld.name() == name:
+      return fld
+  assert(false)
+
+proc fieldByIndex*(self:MRecord,index:int):MField=
+  assert(index < self.fields.len())
+  return self.fields[index]
+
+proc getIndexOfField*(self:MRecord,name:string):int=
+  for i in 0..self.fields.len()-1:
+    if self.fields[i].name() == name:
+      return i
+  assert(false)
+
+proc id*(self:MRecord):int64=
+  result = self.fields[0].value.toInt64()
+
+proc idVar*(self:MRecord):MInt64VarRef=
+  result = self.fields[0].value.MInt64VarRef()
+
+proc vals*(self:MRecord):seq[MVariant]=
+  for fld in self.fields:
+    result.add(fld.value)
 
 proc newMrecord*(metas:seq[MFieldMeta]):MRecord=
   result = newMrecord()
@@ -354,6 +389,7 @@ proc select*(self:SqlTable,names:seq[string] = @[]):SqlTable=
 
 proc select*(self:SqlTable,names =SqlStmt()):SqlTable=
   return select(self,names.names)
+
 proc filter*(self:SqlTable,whereSql:SqlStmt):SqlTable=
   if self.sqlKind == SqlSelect:
     self.whereSql = whereSql
@@ -454,12 +490,19 @@ proc insert*(self:SqlTable,vals:seq[ref MVariant]):SqlTable=
   self.inserSQl.stmt = self.getInsertSql()
   return self
 
+proc insert*(self:SqlTable,record:MRecord):SqlTable=
+  return self.insert(record.vals())
+
 proc delete*(self:SqlTable):SqlTable=
   self.sqlKind = SqlDelete
   self.whereSqlTmp.names.setLen(0)
   self.whereSqlTmp.stmt = ""
   self.whereSqlTmp.vals.setLen(0)
   return self
+
+proc delete*(self:SqlTable,record:MRecord):bool=
+  self.whereSqlTmp.stmt = " ID = ?"
+  self.whereSqlTmp.vals.add(record.idVar())
 
 proc exec*(self:SqlTable,db:DbConn):bool=
   if self.sqlKind == SqlInsert:
@@ -487,17 +530,6 @@ proc exec*(self:SqlTable,db:DbConn):bool=
 
 proc createTable*(self:SqlTable,db:DbConn):bool=
   return db.tryExec(sql(self.createTableSql))
-
-
-
-when isMainModule:
-  var db = open("test.db","","","")
-  
-  
-
-  
-
-
     
   
 
@@ -510,6 +542,11 @@ when isMainModule:
   echo """***************************************
 **************** tests ****************
 ***************************************"""
+  echo """************
+****Db******
+************
+""" 
+  var db = open("test.db","","","")
   echo """
 **********
 MFieldmeta
@@ -531,6 +568,10 @@ SqlTable
   dump table.inserSQl.stmt
   dump table.selectSql.stmt
   dump table.select(fields("name","age")).filter(field("ID") == 1).getSelectSql()
+  if table.createTable(db):
+    echo "table created"
+  else: echo "we did not create the table"
+  var rec = newMrecord(table.meta)
   echo """
 ************
 END SqlTable
